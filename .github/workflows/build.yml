@@ -71,7 +71,7 @@ jobs:
             --name cgc \
             --console \
             --strip \
-            --hookspath hooks \
+            --additional-hooks-dir hooks \
             --hidden-import cgc \
             --hidden-import cgc.cli \
             --hidden-import cgc.cli.main \
@@ -83,7 +83,7 @@ jobs:
             --name cgc_mcp \
             --console \
             --strip \
-            --hookspath hooks \
+            --additional-hooks-dir hooks \
             --exclude-module torch \
             --exclude-module spacy \
             --exclude-module gliner \
