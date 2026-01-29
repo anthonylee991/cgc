@@ -1,0 +1,113 @@
+[project]
+name = "context-graph-connector"
+version = "0.1.0"
+description = "Programmatic data access layer for LLM agents - navigate context, don't memorize it"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    { name = "Your Name", email = "you@example.com" }
+]
+keywords = ["llm", "rag", "knowledge-graph", "data-access", "context"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    # SQL databases
+    "sqlalchemy>=2.0",
+    "asyncpg",
+    "aiomysql",
+    "aiosqlite",
+    "pgvector",
+
+    # Vector databases
+    "qdrant-client>=1.0",
+    "pinecone-client>=3.0",
+
+    # MongoDB
+    "pymongo>=4.0",
+    "motor",
+
+    # Object storage
+    "boto3",
+    "aioboto3",
+
+    # Document parsing
+    "pypdf>=3.0",
+    "pdfplumber",
+    "python-docx",
+    "openpyxl",
+    "xlrd>=2.0",
+
+    # Data handling
+    "pydantic>=2.0",
+    "pandas",
+    "pyarrow",
+    "aiofiles",
+
+    # NER / Extraction
+    "gliner",
+
+    # CLI
+    "typer>=0.9",
+    "rich",
+
+    # API server
+    "fastapi>=0.100",
+    "uvicorn[standard]",
+
+    # MCP (Model Context Protocol)
+    "mcp>=1.0",
+
+    # Utilities
+    "python-dotenv",
+    "structlog",
+    "httpx",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio",
+    "pytest-cov",
+    "testcontainers",
+    "ruff",
+    "mypy",
+]
+
+[project.scripts]
+cgc = "cgc.cli.main:main"
+cgc-server = "cgc.api.server:main"
+cgc-server-secure = "cgc.api.secure_server:main"
+cgc-mcp = "cgc.mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cgc"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

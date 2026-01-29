@@ -1,0 +1,188 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            arch: aarch64
+            dist_name: cgc-mac-aarch64
+          - platform: macos-15-intel
+            arch: x86_64
+            dist_name: cgc-mac-x86_64
+          - platform: windows-latest
+            arch: x86_64
+            dist_name: cgc-windows
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      # ── Build executables ──────────────────────────────────────────
+
+      - name: Build executables (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Build CGC CLI
+          pyinstaller \
+            --onefile \
+            --name cgc \
+            --console \
+            --strip \
+            --hookspath hooks \
+            --hidden-import cgc \
+            --hidden-import cgc.cli \
+            --hidden-import cgc.cli.main \
+            cgc/cli/main.py
+
+          # Build CGC MCP server
+          pyinstaller \
+            --onefile \
+            --name cgc_mcp \
+            --console \
+            --strip \
+            --hookspath hooks \
+            --exclude-module torch \
+            --exclude-module spacy \
+            --exclude-module gliner \
+            --exclude-module scipy \
+            --exclude-module sklearn \
+            --exclude-module transformers \
+            --exclude-module thinc \
+            --hidden-import cgc \
+            --hidden-import cgc.mcp \
+            --hidden-import cgc.mcp.server \
+            cgc/mcp/__main__.py
+
+      - name: Build executables (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Build CGC CLI
+          pyinstaller cgc.spec
+
+          # Build CGC MCP server
+          pyinstaller cgc_mcp.spec
+
+      # ── Package distribution ───────────────────────────────────────
+
+      - name: Package distribution (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          DIST="${{ matrix.dist_name }}"
+          mkdir -p "${DIST}/documentation"
+
+          # Binaries
+          cp dist/cgc "${DIST}/"
+          cp dist/cgc_mcp "${DIST}/"
+          chmod +x "${DIST}/cgc" "${DIST}/cgc_mcp"
+
+          # Launch script
+          cp launch_cgc.sh "${DIST}/"
+          chmod +x "${DIST}/launch_cgc.sh"
+
+          # Documentation
+          cp README-MAC.md "${DIST}/README.md"
+          cp docs/CLI.md "${DIST}/documentation/" 2>/dev/null || true
+          cp docs/API.md "${DIST}/documentation/" 2>/dev/null || true
+          cp docs/MCP.md "${DIST}/documentation/" 2>/dev/null || true
+          cp docs/TECHNICAL.md "${DIST}/documentation/" 2>/dev/null || true
+          cp docs/SECURITY.md "${DIST}/documentation/" 2>/dev/null || true
+          cp LICENSE "${DIST}/documentation/" 2>/dev/null || true
+          cp THIRD_PARTY_NOTICES.md "${DIST}/documentation/" 2>/dev/null || true
+
+          # Zip
+          zip -r "${DIST}.zip" "${DIST}/"
+          echo "Packaged ${DIST}.zip:"
+          ls -la "${DIST}.zip"
+
+      - name: Package distribution (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $DIST = "${{ matrix.dist_name }}"
+          New-Item -ItemType Directory -Force -Path "$DIST\documentation" | Out-Null
+
+          # Binaries
+          Copy-Item "dist\cgc.exe" "$DIST\"
+          Copy-Item "dist\cgc_mcp.exe" "$DIST\"
+
+          # Documentation
+          Copy-Item "README.md" "$DIST\README.md"
+          $docs = @("docs\CLI.md", "docs\API.md", "docs\MCP.md", "docs\TECHNICAL.md", "docs\SECURITY.md", "LICENSE", "THIRD_PARTY_NOTICES.md")
+          foreach ($doc in $docs) {
+            if (Test-Path $doc) { Copy-Item $doc "$DIST\documentation\" }
+          }
+
+          # Zip
+          Compress-Archive -Path "$DIST\*" -DestinationPath "$DIST.zip" -Force
+          Write-Host "Packaged ${DIST}.zip:"
+          Get-ChildItem "$DIST.zip"
+
+      # ── Upload to release ──────────────────────────────────────────
+
+      - name: Upload distribution zip
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
+            TAG="v0.1.0"
+          fi
+          # Create release if it doesn't exist
+          gh release create "$TAG" \
+            --title "CGC $TAG" \
+            --notes "Context Graph Connector release.
+
+          **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
+          **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
+          **Windows:** Download \`cgc-windows.zip\`
+
+          Each zip contains the CLI, MCP server, and documentation.
+
+          > macOS unsigned build: run \`xattr -cr .\` to bypass Gatekeeper on first use." \
+            --draft 2>/dev/null || true
+          gh release upload "$TAG" "${{ matrix.dist_name }}.zip" --clobber

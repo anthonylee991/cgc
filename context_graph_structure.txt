@@ -1,0 +1,6 @@
+cgc/
+├── connector.py          # Main interface
+├── core/                 # Types (dataclasses)
+├── adapters/             # One file per adapter type
+├── discovery/            # Relationship inference
+└── cli/                  # Typer CLI
