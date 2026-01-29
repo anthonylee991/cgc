@@ -2,12 +2,14 @@
 
 
 def test_core_imports():
-    from cgc.core.schema import SourceSchema, EntitySchema, FieldSchema
+    from cgc.core.schema import Schema, Entity, Field
     from cgc.core.query import Query
     from cgc.core.chunk import ChunkStrategy
     from cgc.core.errors import CGCError
 
-    assert SourceSchema is not None
+    assert Schema is not None
+    assert Entity is not None
+    assert Field is not None
     assert Query is not None
     assert ChunkStrategy is not None
     assert CGCError is not None
