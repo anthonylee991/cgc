@@ -28,8 +28,36 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v --tb=short
 
-  build:
+  create-release:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
+            TAG="v0.1.0"
+          fi
+          gh release create "$TAG" \
+            --title "CGC $TAG" \
+            --notes "Context Graph Connector release.
+
+          **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
+          **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
+          **Windows:** Download \`cgc-windows.zip\`
+
+          Each zip contains the CLI, MCP server, and documentation.
+
+          > macOS unsigned build: run \`xattr -cr .\` to bypass Gatekeeper on first use." \
+            --draft
+
+  build:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -172,17 +200,4 @@ jobs:
           if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
             TAG="v0.1.0"
           fi
-          # Create release if it doesn't exist
-          gh release create "$TAG" \
-            --title "CGC $TAG" \
-            --notes "Context Graph Connector release.
-
-          **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
-          **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
-          **Windows:** Download \`cgc-windows.zip\`
-
-          Each zip contains the CLI, MCP server, and documentation.
-
-          > macOS unsigned build: run \`xattr -cr .\` to bypass Gatekeeper on first use." \
-            --draft 2>/dev/null || true
           gh release upload "$TAG" "${{ matrix.dist_name }}.zip" --clobber
