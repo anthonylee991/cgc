@@ -41,11 +41,20 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
-            TAG="v0.1.0"
+            TAG="v0.2.0"
           fi
           gh release create "$TAG" \
             --title "CGC $TAG" \
             --notes "Context Graph Connector release.
+
+          **What's new in v0.2.0:**
+          - 50+ regex patterns for high-precision entity extraction
+          - GliNER + GliREL ML extraction pipeline (optional)
+          - E5 embedding domain routing with 11 industry packs
+          - Structured data extraction (hub-and-spoke model)
+          - Semantic type constraints and garbage filtering
+          - New CLI commands: extract-file, detect-domain, list-packs
+          - New API endpoints: /extract/structured, /detect/domain, /packs
 
           **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
           **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
@@ -53,7 +62,8 @@ jobs:
 
           Each zip contains the CLI, MCP server, and documentation.
 
-          > macOS unsigned build: run \`xattr -cr .\` to bypass Gatekeeper on first use." \
+          > macOS unsigned build: run \`xattr -cr .\` to bypass Gatekeeper on first use.
+          > ML extraction (GliNER/GliREL/E5) requires separate Python install with \`pip install cgc[extraction]\`. Pattern-only extraction works out of the box." \
             --draft
 
   build:
@@ -103,6 +113,31 @@ jobs:
             --hidden-import cgc \
             --hidden-import cgc.cli \
             --hidden-import cgc.cli.main \
+            --hidden-import cgc.core \
+            --hidden-import cgc.core.schema \
+            --hidden-import cgc.core.query \
+            --hidden-import cgc.core.chunk \
+            --hidden-import cgc.core.graph \
+            --hidden-import cgc.core.triplet \
+            --hidden-import cgc.core.errors \
+            --hidden-import cgc.connector \
+            --hidden-import cgc.session \
+            --hidden-import cgc.adapters \
+            --hidden-import cgc.adapters.base \
+            --hidden-import cgc.adapters.sql \
+            --hidden-import cgc.adapters.filesystem \
+            --hidden-import cgc.discovery \
+            --hidden-import cgc.discovery.engine \
+            --hidden-import cgc.discovery.patterns \
+            --hidden-import cgc.discovery.filters \
+            --hidden-import cgc.discovery.constraints \
+            --hidden-import cgc.discovery.industry_packs \
+            --hidden-import cgc.discovery.extractor \
+            --hidden-import cgc.discovery.structured \
+            --hidden-import cgc.discovery.gliner \
+            --hidden-import cgc.discovery.glirel \
+            --hidden-import cgc.discovery.unified \
+            --hidden-import cgc.discovery.router \
             cgc/cli/main.py
 
           # Build CGC MCP server
@@ -115,13 +150,36 @@ jobs:
             --exclude-module torch \
             --exclude-module spacy \
             --exclude-module gliner \
+            --exclude-module glirel \
             --exclude-module scipy \
             --exclude-module sklearn \
             --exclude-module transformers \
+            --exclude-module sentence_transformers \
             --exclude-module thinc \
             --hidden-import cgc \
             --hidden-import cgc.mcp \
             --hidden-import cgc.mcp.server \
+            --hidden-import cgc.core \
+            --hidden-import cgc.core.schema \
+            --hidden-import cgc.core.query \
+            --hidden-import cgc.core.chunk \
+            --hidden-import cgc.core.graph \
+            --hidden-import cgc.core.triplet \
+            --hidden-import cgc.core.errors \
+            --hidden-import cgc.connector \
+            --hidden-import cgc.session \
+            --hidden-import cgc.adapters \
+            --hidden-import cgc.adapters.base \
+            --hidden-import cgc.adapters.sql \
+            --hidden-import cgc.adapters.filesystem \
+            --hidden-import cgc.discovery \
+            --hidden-import cgc.discovery.engine \
+            --hidden-import cgc.discovery.patterns \
+            --hidden-import cgc.discovery.filters \
+            --hidden-import cgc.discovery.constraints \
+            --hidden-import cgc.discovery.industry_packs \
+            --hidden-import cgc.discovery.extractor \
+            --hidden-import cgc.discovery.structured \
             cgc/mcp/__main__.py
 
       - name: Build executables (Windows)
@@ -198,6 +256,6 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
-            TAG="v0.1.0"
+            TAG="v0.2.0"
           fi
           gh release upload "$TAG" "${{ matrix.dist_name }}.zip" --clobber

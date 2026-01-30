@@ -368,7 +368,45 @@ Find facts/relationships in text. **Does not store them - just extracts.**
 ```
 POST http://localhost:8420/extract/triplets
 {
-  "text": "Steve Jobs founded Apple in California."
+  "text": "Steve Jobs founded Apple in California.",
+  "use_gliner": false,
+  "domain": null
+}
+```
+
+**Parameters:**
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `text` | string | required | Text to extract from |
+| `use_gliner` | boolean | `true` | Use GliNER ML model (higher recall, slower). Set `false` for pattern-only extraction. |
+| `domain` | string | `null` | Force an industry pack (e.g., `"tech_startup"`, `"healthcare_medical"`). `null` for auto-detection. |
+
+Returns:
+```json
+{
+  "triplets": [
+    {
+      "subject": "Steve Jobs",
+      "predicate": "FOUNDED",
+      "object": "Apple",
+      "confidence": 0.92,
+      "subject_label": "person",
+      "object_label": "organization"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### Extract from Structured Data
+Extract relationships from tabular data (JSON rows) using a hub-and-spoke model.
+```
+POST http://localhost:8420/extract/structured
+{
+  "data": [
+    {"name": "Alice", "department": "Engineering", "location": "NYC"},
+    {"name": "Bob", "department": "Sales", "location": "SF"}
+  ]
 }
 ```
 
@@ -376,11 +414,42 @@ Returns:
 ```json
 {
   "triplets": [
-    {"subject": "Steve Jobs", "predicate": "founded", "object": "Apple"},
-    {"subject": "Apple", "predicate": "founded in", "object": "California"}
-  ]
+    {"subject": "Alice", "predicate": "IN_DEPARTMENT", "object": "Engineering", "confidence": 0.9},
+    {"subject": "Alice", "predicate": "LOCATED_IN", "object": "NYC", "confidence": 0.9}
+  ],
+  "count": 4,
+  "rows_processed": 2
 }
 ```
+
+#### Detect Domain
+Classify text into an industry domain for optimized extraction.
+```
+POST http://localhost:8420/detect/domain
+{
+  "text": "Our Series A was led by Sequoia. The CTO is building in Kubernetes."
+}
+```
+
+Returns:
+```json
+{
+  "pack_id": "tech_startup",
+  "pack_name": "Tech / Startup",
+  "confidence": 0.848,
+  "entity_labels": ["person", "company", "product", "technology", ...],
+  "relation_labels": ["founded", "leads", "built with", ...],
+  "scores": {"tech_startup": 0.848, "finance_investment": 0.753, ...}
+}
+```
+
+#### List Industry Packs
+See all available domain packs for extraction.
+```
+GET http://localhost:8420/packs
+```
+
+Returns 11 industry packs: `general_business`, `tech_startup`, `ecommerce_retail`, `legal_corporate`, `finance_investment`, `hr_people`, `healthcare_medical`, `real_estate`, `supply_chain`, `research_academic`, `government_public`.
 
 **What to do with triplets:** Store them yourself in:
 - A database table with columns: subject, predicate, object

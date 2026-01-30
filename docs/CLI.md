@@ -76,6 +76,9 @@ This shows all available commands.
 | `cgc sql` | Run a SQL query | `cgc sql mydb "SELECT * FROM users"` |
 | `cgc chunk` | Break data into pieces | `cgc chunk mydb report.pdf` |
 | `cgc extract` | Extract relationships | `cgc extract "John works at Apple"` |
+| `cgc extract-file` | Extract from a file | `cgc extract-file data.csv` |
+| `cgc detect-domain` | Detect industry domain | `cgc detect-domain "Our Series A..."` |
+| `cgc list-packs` | List industry packs | `cgc list-packs` |
 | `cgc health` | Check connection | `cgc health mydb` |
 | `cgc version` | Show version | `cgc version` |
 
@@ -404,11 +407,14 @@ cgc extract "<text>" [options]
 - `text` - The text to analyze (in quotes)
 
 **Options:**
-- `--gliner` - Use AI-powered extraction (more accurate, slower)
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--gliner` | Use GliNER ML model (higher recall, slower) | Off |
+| `--domain` | Force an industry pack for domain-specific extraction | Auto-detect |
 
 **Examples:**
 
-Basic extraction:
+Basic extraction (pattern-only):
 ```
 cgc extract "Apple was founded by Steve Jobs in Cupertino, California."
 ```
@@ -418,23 +424,128 @@ With AI enhancement:
 cgc extract "Apple was founded by Steve Jobs in Cupertino, California." --gliner
 ```
 
+With domain routing:
+```
+cgc extract "Our CTO built the API in Kubernetes." --domain tech_startup
+```
+
 **Output:**
 ```
-Extracted 3 relationships:
+Extracted 2 relationships:
 
-┌──────────────┬─────────────────┬─────────────────────┬────────────┐
-│ Subject      │ Predicate       │ Object              │ Confidence │
-├──────────────┼─────────────────┼─────────────────────┼────────────┤
-│ Apple        │ was founded by  │ Steve Jobs          │ 0.95       │
-│ Apple        │ founded in      │ Cupertino           │ 0.87       │
-│ Cupertino    │ located in      │ California          │ 0.82       │
-└──────────────┴─────────────────┴─────────────────────┴────────────┘
+  (Apple) --[FOUNDED]--> (Steve Jobs) conf=0.92 [organization → person]
+  (Apple) --[LOCATED_IN]--> (Cupertino) conf=0.90 [organization → location]
 ```
 
 **Use Cases:**
 - Building knowledge graphs
 - Understanding document content
 - Finding connections in text
+
+---
+
+### cgc extract-file
+
+Extract relationships from a file (text, CSV, or JSON).
+
+**Format:**
+```
+cgc extract-file <file_path> [options]
+```
+
+**Arguments:**
+- `file_path` - Path to a text, CSV, or JSON file
+
+**Options:**
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--gliner` | Use GliNER ML model | Off |
+| `--domain` | Force an industry pack | Auto-detect |
+
+**Examples:**
+
+Extract from a text file:
+```
+cgc extract-file meeting_notes.txt
+```
+
+Extract from a CSV file (structured extraction):
+```
+cgc extract-file employees.csv
+```
+
+Extract from a JSON file (array of objects):
+```
+cgc extract-file customer_data.json
+```
+
+**Notes:**
+- CSV and JSON files use hub-and-spoke structured extraction
+- Text files use pattern matching (and optionally GliNER)
+- CGC auto-detects the file format
+
+---
+
+### cgc detect-domain
+
+Detect the industry domain of text for optimized extraction.
+
+**Format:**
+```
+cgc detect-domain "<text>"
+```
+
+**Examples:**
+```
+cgc detect-domain "Our Series A was led by Sequoia Capital. The CTO is building in Kubernetes."
+```
+
+**Output:**
+```
+Domain: Tech / Startup (tech_startup)
+Confidence: 0.848
+
+Entity labels: person, company, product, technology, framework, ...
+Relation labels: founded, leads, built with, integrates with, ...
+
+Top scores:
+  tech_startup:       0.848 ←
+  finance_investment:  0.753
+  hr_people:          0.751
+```
+
+**Notes:**
+- Uses E5 embeddings for semantic similarity matching
+- Returns the best-matching industry pack and confidence score
+- Use the pack ID with `--domain` in other extraction commands
+
+---
+
+### cgc list-packs
+
+List all available industry packs for domain-specific extraction.
+
+**Format:**
+```
+cgc list-packs
+```
+
+**Output:**
+```
+Available Industry Packs (11):
+
+  general_business   - General business documents
+  tech_startup       - Technology companies, software, APIs
+  ecommerce_retail   - Shopping, orders, products, pricing
+  legal_corporate    - Legal documents, contracts, governance
+  finance_investment - Financial markets, securities, banking
+  hr_people          - HR, employees, skills, certifications
+  healthcare_medical - Medical records, diagnoses, medications
+  real_estate        - Properties, brokers, transactions
+  supply_chain       - Manufacturing, shipping, procurement
+  research_academic  - Academic papers, grants, journals
+  government_public  - Government agencies, legislation
+```
 
 ---
 

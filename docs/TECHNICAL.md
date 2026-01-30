@@ -145,17 +145,17 @@ CGC automatically finds connections between your data:
 
 ### Triplet Extraction
 
-CGC can extract structured relationships from text:
+CGC can extract structured relationships from text using a multi-stage pipeline:
 
 **Input:**
 ```
-"Apple Inc. was founded by Steve Jobs in Cupertino."
+"Tim Cook is the CEO of Apple. Apple is headquartered in Cupertino."
 ```
 
 **Output:**
 ```
-Subject: Apple Inc.    Predicate: was founded by    Object: Steve Jobs
-Subject: Apple Inc.    Predicate: located in        Object: Cupertino
+(Tim Cook) --[LEADS]--> (Apple)       [person → organization]   conf=0.92
+(Apple) --[LOCATED_IN]--> (Cupertino) [organization → location] conf=0.90
 ```
 
 This is useful for:
@@ -163,9 +163,47 @@ This is useful for:
 - Understanding document content
 - Finding connections mentioned in text
 
-CGC uses two extraction methods:
-1. **Pattern Matching** - Fast, rule-based extraction
-2. **GliNER** - AI-powered entity recognition (more accurate)
+#### Extraction Pipeline (v0.2.0)
+
+CGC uses a multi-stage extraction pipeline:
+
+1. **Pattern Matching** (50+ regex patterns) - Fast, high-precision extraction for employment, location, organizational, e-commerce, financial, and technical relationships.
+
+2. **GliNER** (`urchade/gliner_medium-v2.1`) - Neural NER with batched label sets (core, technical, business, financial). Finds entities that patterns miss.
+
+3. **GliREL** (`jackboyla/glirel-large-v0`) - Relation extraction that uses spaCy tokenization to map entity positions and extract typed relationships between GliNER entities.
+
+4. **E5 Domain Router** (`intfloat/e5-small-v2`) - Classifies text into one of 11 industry packs using semantic similarity, selecting domain-specific entity and relation labels for optimal extraction.
+
+5. **Structured Extractor** - Hub-and-spoke model for tabular data. Classifies columns (primary entity, foreign key, timestamp, property) and builds relationships automatically.
+
+6. **Semantic Constraints** - Validates that extracted relations make sense (e.g., only a `person` can `WORKS_AT` an `organization`). Normalizes labels and predicates, filters garbage entities.
+
+#### Industry Packs
+
+CGC includes 11 industry-specific label sets for domain-optimized extraction:
+
+| Pack | Use Case |
+|------|----------|
+| `general_business` | Default for most text |
+| `tech_startup` | Software, APIs, funding rounds |
+| `ecommerce_retail` | Products, orders, pricing |
+| `legal_corporate` | Contracts, regulations, courts |
+| `finance_investment` | Securities, funds, trading |
+| `hr_people` | Employees, skills, hiring |
+| `healthcare_medical` | Patients, diagnoses, medications |
+| `real_estate` | Properties, transactions, zoning |
+| `supply_chain` | Manufacturing, shipping, procurement |
+| `research_academic` | Papers, grants, journals |
+| `government_public` | Agencies, legislation, permits |
+
+#### ML Dependencies
+
+The ML extraction components (GliNER, GliREL, E5 router) require PyTorch, spaCy, and sentence-transformers. These are optional — pattern-based extraction works without any ML dependencies. Install the full stack with:
+
+```
+pip install context-graph-connector[extraction]
+```
 
 ---
 

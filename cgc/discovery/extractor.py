@@ -1,131 +1,162 @@
-"""Hybrid triplet extraction combining patterns and GliNER.
+"""Hybrid triplet extraction combining patterns, GliNER, GliREL, and domain routing.
 
-Strategy:
-1. Run pattern matching first (high precision)
-2. Run GliNER second (catches named entities)
-3. Deduplicate based on span overlap and semantic similarity
-4. Pattern results take priority over GliNER
+v0.2.0 pipeline:
+1. Detect content type (structured vs unstructured)
+2. STRUCTURED: StructuredExtractor (hub-and-spoke)
+3. UNSTRUCTURED:
+   a. Pattern Matcher (50+ patterns, high precision)
+   b. Domain Router (select industry pack via E5 embeddings)
+   c. Unified Extractor (spaCy + GliNER + GliREL)
+   d. Merge pattern + unified results
+4. Deduplication & filtering
 """
 
 from __future__ import annotations
 
+import json
+import logging
+from typing import Any
+
 from cgc.core.triplet import Triplet, TripletCollection
 from cgc.discovery.patterns import PatternMatcher, extract_triplets_with_patterns
-from cgc.discovery.gliner import create_gliner_extractor, GliNERExtractor, MockGliNERExtractor
+from cgc.discovery.filters import deduplicate_triplets, filter_triplets
 
-
-def spans_overlap(a: tuple[int, int], b: tuple[int, int], threshold: float = 0.5) -> bool:
-    """Check if two spans overlap significantly.
-
-    Args:
-        a: First span (start, end)
-        b: Second span (start, end)
-        threshold: Minimum overlap ratio to consider as duplicate
-
-    Returns:
-        True if spans overlap more than threshold
-    """
-    overlap_start = max(a[0], b[0])
-    overlap_end = min(a[1], b[1])
-
-    if overlap_start >= overlap_end:
-        return False
-
-    overlap_len = overlap_end - overlap_start
-    a_len = a[1] - a[0]
-    b_len = b[1] - b[0]
-
-    # Check if overlap is significant relative to either span
-    return (overlap_len / a_len > threshold) or (overlap_len / b_len > threshold)
-
-
-def triplets_similar(a: Triplet, b: Triplet) -> bool:
-    """Check if two triplets are semantically similar."""
-    return fuzzy_eq(a.subject, b.subject) and fuzzy_eq(a.object, b.object)
-
-
-def fuzzy_eq(a: str, b: str) -> bool:
-    """Check if two strings are fuzzy equal."""
-    a_lower = a.lower().strip()
-    b_lower = b.lower().strip()
-    return a_lower == b_lower or a_lower in b_lower or b_lower in a_lower
+logger = logging.getLogger(__name__)
 
 
 class HybridExtractor:
-    """Hybrid triplet extraction combining patterns and NER.
+    """Hybrid triplet extraction combining patterns, NER, and relation extraction.
 
-    Achieves ~92% F1 score on conversational text by combining:
-    - Pattern matching: High precision (93.75%) for conversational structures
-    - GliNER NER: High recall for named entities
+    Supports:
+    - Pattern matching (50+ patterns, high precision)
+    - GliNER entity extraction (medium model, batched labels)
+    - GliREL relation extraction (type-constrained)
+    - E5 embedding domain routing (11 industry packs)
+    - Structured data extraction (hub-and-spoke)
     """
 
     def __init__(
         self,
         use_gliner: bool = True,
-        gliner_model: str = "urchade/gliner_small-v2.1",
+        use_glirel: bool = True,
+        use_routing: bool = True,
+        gliner_model: str = "urchade/gliner_medium-v2.1",
         gliner_threshold: float = 0.5,
+        force_pack: str | None = None,
     ):
-        """Initialize hybrid extractor.
-
-        Args:
-            use_gliner: Whether to use GliNER (set False for pattern-only)
-            gliner_model: GliNER model name
-            gliner_threshold: Minimum confidence for GliNER entities
-        """
         self.pattern_matcher = PatternMatcher()
         self.use_gliner = use_gliner
+        self.use_glirel = use_glirel
+        self.use_routing = use_routing
+        self.gliner_model = gliner_model
+        self.gliner_threshold = gliner_threshold
+        self.force_pack = force_pack
 
-        if use_gliner:
-            self.gliner = create_gliner_extractor(
-                model_name=gliner_model,
-                threshold=gliner_threshold,
-            )
-        else:
-            self.gliner = None
+        # Lazy-initialized components
+        self._unified = None
+        self._router = None
+        self._structured = None
 
-    def extract_triplets(self, text: str) -> list[Triplet]:
-        """Extract triplets using hybrid approach.
+    def _get_unified(self):
+        """Lazy-load the unified extractor."""
+        if self._unified is None:
+            from cgc.discovery.unified import UnifiedExtractor
+            self._unified = UnifiedExtractor(gliner_model=self.gliner_model)
+        return self._unified
 
-        Pattern matching runs first and takes priority.
-        GliNER fills in gaps for named entities that patterns miss.
+    def _get_router(self):
+        """Lazy-load the domain router."""
+        if self._router is None:
+            from cgc.discovery.router import create_router
+            self._router = create_router()
+        return self._router
+
+    def _get_structured(self):
+        """Lazy-load the structured extractor."""
+        if self._structured is None:
+            from cgc.discovery.structured import StructuredExtractor
+            self._structured = StructuredExtractor()
+        return self._structured
+
+    def extract_triplets(self, text: str, domain: str | None = None) -> list[Triplet]:
+        """Extract triplets using the full hybrid pipeline.
+
+        Args:
+            text: Input text (or JSON string for structured data)
+            domain: Force a specific industry pack ID
+
+        Returns:
+            List of extracted triplets, deduplicated and filtered
         """
-        # Step 1: Pattern matching (high precision)
-        pattern_triplets = self.pattern_matcher.extract_triplets(text)
-
-        # Step 2: GliNER (if enabled)
-        gliner_triplets = []
-        if self.gliner is not None:
+        # Auto-detect structured data
+        if self._is_structured(text):
             try:
-                gliner_triplets = self.gliner.extract_triplets(text)
-            except Exception:
-                # GliNER failed, continue with patterns only
+                data = json.loads(text)
+                if isinstance(data, list) and data and isinstance(data[0], dict):
+                    return self.extract_from_structured(data)
+            except (json.JSONDecodeError, IndexError):
                 pass
 
-        # Step 3: Merge, avoiding duplicates
-        final_triplets = list(pattern_triplets)
+        # --- Unstructured pipeline ---
 
-        for gt in gliner_triplets:
-            is_duplicate = False
+        # Step 1: Pattern matching (high precision, always runs)
+        pattern_triplets = self.pattern_matcher.extract_triplets(text)
 
-            for pt in pattern_triplets:
-                # Check span overlap
-                if pt.source_span and gt.source_span:
-                    if spans_overlap(pt.source_span, gt.source_span):
-                        is_duplicate = True
-                        break
+        # Step 2: ML extraction (if enabled)
+        ml_triplets: list[Triplet] = []
 
-                # Check semantic similarity
-                if triplets_similar(pt, gt):
-                    is_duplicate = True
-                    break
+        if self.use_gliner or self.use_glirel:
+            entity_labels = None
+            relation_labels = None
 
-            if not is_duplicate:
-                final_triplets.append(gt)
+            # Step 2a: Domain routing (select industry pack labels)
+            pack_id = domain or self.force_pack
+            if self.use_routing or pack_id:
+                try:
+                    if pack_id:
+                        from cgc.discovery.industry_packs import get_pack
+                        pack = get_pack(pack_id)
+                    else:
+                        router = self._get_router()
+                        route_result = router.route(text)
+                        pack = route_result.pack
 
-        # Sort by position
-        final_triplets.sort(key=lambda t: t.source_span[0] if t.source_span else 0)
+                    if pack:
+                        entity_labels = pack.entity_labels
+                        relation_labels = pack.relation_labels
+                except Exception as e:
+                    logger.warning(f"Domain routing failed: {e}")
 
-        return final_triplets
+            # Step 2b: Unified extraction (spaCy + GliNER + GliREL)
+            if self.use_glirel:
+                try:
+                    unified = self._get_unified()
+                    ml_triplets = unified.extract_triplets(
+                        text,
+                        entity_labels=entity_labels,
+                        relation_labels=relation_labels,
+                    )
+                except Exception as e:
+                    logger.warning(f"Unified extraction failed: {e}")
+                    # Fallback to GliNER-only
+                    ml_triplets = self._gliner_only_extract(text, entity_labels)
+            elif self.use_gliner:
+                ml_triplets = self._gliner_only_extract(text, entity_labels)
+
+        # Step 3: Merge pattern + ML results (patterns take priority)
+        all_triplets = list(pattern_triplets) + ml_triplets
+
+        # Step 4: Filter and deduplicate
+        all_triplets = filter_triplets(all_triplets)
+        all_triplets = deduplicate_triplets(all_triplets)
+
+        return all_triplets
+
+    def extract_from_structured(self, data: list[dict]) -> list[Triplet]:
+        """Extract triplets from structured data (CSV rows, JSON objects)."""
+        structured = self._get_structured()
+        triplets = structured.extract_triplets(data)
+        return filter_triplets(triplets)
 
     def extract_to_collection(self, text: str) -> TripletCollection:
         """Extract triplets into a collection."""
@@ -134,8 +165,33 @@ class HybridExtractor:
         collection.add_all(triplets)
         return collection
 
+    def _gliner_only_extract(
+        self,
+        text: str,
+        entity_labels: list[str] | None = None,
+    ) -> list[Triplet]:
+        """Fallback: GliNER entity-pairing without GliREL."""
+        try:
+            from cgc.discovery.gliner import create_gliner_extractor
+            gliner = create_gliner_extractor(
+                model_name=self.gliner_model,
+                threshold=self.gliner_threshold,
+            )
+            if entity_labels:
+                gliner.labels = entity_labels
+            return gliner.extract_triplets(text)
+        except Exception as e:
+            logger.warning(f"GliNER extraction failed: {e}")
+            return []
 
-# Default instance
+    def _is_structured(self, text: str) -> bool:
+        """Check if text looks like structured JSON data."""
+        stripped = text.strip()
+        return stripped.startswith("[") and stripped.endswith("]")
+
+
+# --- Module-level convenience functions (backward compatible) ---
+
 _default_extractor: HybridExtractor | None = None
 
 
@@ -147,18 +203,24 @@ def get_default_extractor() -> HybridExtractor:
     return _default_extractor
 
 
-def extract_triplets(text: str, use_gliner: bool = True) -> list[Triplet]:
+def extract_triplets(
+    text: str,
+    use_gliner: bool = True,
+    domain: str | None = None,
+) -> list[Triplet]:
     """Extract triplets from text using hybrid approach.
 
     Args:
         text: Input text
         use_gliner: Whether to use GliNER (slower but higher recall)
+        domain: Force a specific industry pack ID
 
     Returns:
         List of extracted triplets
     """
     if use_gliner:
-        return get_default_extractor().extract_triplets(text)
+        extractor = get_default_extractor()
+        return extractor.extract_triplets(text, domain=domain)
     else:
         return extract_triplets_with_patterns(text)
 
@@ -166,15 +228,8 @@ def extract_triplets(text: str, use_gliner: bool = True) -> list[Triplet]:
 def extract_triplets_batch(
     texts: list[str],
     use_gliner: bool = True,
+    domain: str | None = None,
 ) -> list[list[Triplet]]:
-    """Extract triplets from multiple texts.
-
-    Args:
-        texts: List of input texts
-        use_gliner: Whether to use GliNER
-
-    Returns:
-        List of triplet lists (one per input text)
-    """
+    """Extract triplets from multiple texts."""
     extractor = get_default_extractor() if use_gliner else HybridExtractor(use_gliner=False)
-    return [extractor.extract_triplets(text) for text in texts]
+    return [extractor.extract_triplets(text, domain=domain) for text in texts]

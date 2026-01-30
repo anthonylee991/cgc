@@ -23,7 +23,7 @@ fi
 # Make it executable
 chmod +x ./cgc
 
-PORT=${CGC_PORT:-8000}
+PORT=${CGC_PORT:-8420}
 
 # Check if port is already in use
 if lsof -Pi :${PORT} -sTCP:LISTEN -t >/dev/null 2>&1 ; then

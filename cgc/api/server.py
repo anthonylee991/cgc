@@ -77,7 +77,18 @@ class VectorSearchRequest(BaseModel):
 class TripletRequest(BaseModel):
     """Triplet extraction request."""
     text: str
-    use_gliner: bool = False  # Default to patterns-only for speed
+    use_gliner: bool = True
+    domain: str | None = None  # Industry pack ID for domain-specific extraction
+
+
+class StructuredExtractionRequest(BaseModel):
+    """Structured data extraction request."""
+    data: list[dict[str, Any]]
+
+
+class DomainDetectionRequest(BaseModel):
+    """Domain detection request."""
+    text: str
 
 
 class FindRelatedRequest(BaseModel):
@@ -587,11 +598,17 @@ async def find_related(request: FindRelatedRequest):
 
 @app.post("/extract/triplets")
 async def extract_triplets(request: TripletRequest):
-    """Extract triplets from text."""
+    """Extract triplets from text.
+
+    Supports pattern-only (fast) or hybrid GliNER+GliREL extraction (higher recall).
+    Optionally force an industry pack via the `domain` parameter.
+    """
     connector = get_connector()
 
     try:
-        triplets = connector.extract_triplets(request.text, use_gliner=request.use_gliner)
+        triplets = connector.extract_triplets(
+            request.text, use_gliner=request.use_gliner, domain=request.domain
+        )
         return {
             "triplets": [
                 {
@@ -600,6 +617,8 @@ async def extract_triplets(request: TripletRequest):
                     "object": t.object,
                     "confidence": t.confidence,
                     "source_text": t.source_text,
+                    "subject_label": t.metadata.get("subject_label") if t.metadata else None,
+                    "object_label": t.metadata.get("object_label") if t.metadata else None,
                 }
                 for t in triplets
             ],
@@ -607,6 +626,70 @@ async def extract_triplets(request: TripletRequest):
         }
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+@app.post("/extract/structured")
+async def extract_structured(request: StructuredExtractionRequest):
+    """Extract triplets from structured data using hub-and-spoke model.
+
+    Classifies columns (primary entity, foreign key, property, etc.)
+    and builds entity relationships automatically.
+    """
+    connector = get_connector()
+
+    try:
+        triplets = connector.extract_triplets_structured(request.data)
+        return {
+            "triplets": [
+                {
+                    "subject": t.subject,
+                    "predicate": t.predicate,
+                    "object": t.object,
+                    "confidence": t.confidence,
+                }
+                for t in triplets
+            ],
+            "count": len(triplets),
+            "rows_processed": len(request.data),
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/detect/domain")
+async def detect_domain(request: DomainDetectionRequest):
+    """Detect the industry domain of text for optimized extraction.
+
+    Uses E5 embeddings to route text to the best-matching industry pack.
+    """
+    connector = get_connector()
+
+    try:
+        result = connector.detect_domain(request.text)
+        return result
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/packs")
+async def list_packs():
+    """List all available industry packs for domain-specific extraction."""
+    from cgc.discovery.industry_packs import get_all_packs
+
+    packs = get_all_packs()
+    return {
+        "packs": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "entity_labels": p.entity_labels,
+                "relation_labels": p.relation_labels,
+            }
+            for p in packs
+        ],
+        "count": len(packs),
+    }
 
 
 # === Summary ===

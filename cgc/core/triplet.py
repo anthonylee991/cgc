@@ -17,6 +17,8 @@ class Triplet:
     source_span: tuple[int, int] | None = None  # Character offsets in original text
     source_text: str | None = None  # Original text this was extracted from
     metadata: dict[str, Any] = field(default_factory=dict)
+    subject_label: str | None = None  # Entity type (person, organization, etc.)
+    object_label: str | None = None   # Entity type
 
     def __str__(self) -> str:
         return f"({self.subject}, {self.predicate}, {self.object})"
@@ -40,13 +42,18 @@ class Triplet:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             "subject": self.subject,
             "predicate": self.predicate,
             "object": self.object,
             "confidence": self.confidence,
             "source_span": self.source_span,
         }
+        if self.subject_label:
+            result["subject_label"] = self.subject_label
+        if self.object_label:
+            result["object_label"] = self.object_label
+        return result
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Triplet":
@@ -57,6 +64,8 @@ class Triplet:
             object=data["object"],
             confidence=data.get("confidence", 1.0),
             source_span=tuple(data["source_span"]) if data.get("source_span") else None,
+            subject_label=data.get("subject_label"),
+            object_label=data.get("object_label"),
         )
 
     def matches_subject(self, query: str, fuzzy: bool = True) -> bool:

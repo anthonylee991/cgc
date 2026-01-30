@@ -1,6 +1,6 @@
 [project]
 name = "context-graph-connector"
-version = "0.1.0"
+version = "0.2.0"
 description = "Programmatic data access layer for LLM agents - navigate context, don't memorize it"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -54,6 +54,9 @@ dependencies = [
 
     # NER / Extraction
     "gliner",
+    "glirel",
+    "spacy>=3.5",
+    "sentence-transformers>=2.0",
 
     # CLI
     "typer>=0.9",
@@ -73,6 +76,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+extraction = [
+    "gliner",
+    "glirel",
+    "spacy>=3.5",
+    "sentence-transformers>=2.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio",

@@ -192,8 +192,6 @@ Once connected, Claude has access to these tools:
 |------|--------------|
 | `cgc_chunk` | Break large data into smaller pieces |
 
-> **Note:** Triplet extraction (`extract_triplets`) is available in the full CLI and API but not in the MCP server. This keeps the MCP executable lightweight and fast-starting.
-
 ### Context & Relationships
 
 | Tool | What it does |

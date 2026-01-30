@@ -478,6 +478,7 @@ def chunk(
 def extract(
     text: str = typer.Argument(..., help="Text to extract triplets from"),
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for NER"),
+    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
 ):
     """Extract triplets (relationships) from text.
@@ -485,17 +486,18 @@ def extract(
     Examples:
         cgc extract "Apple was founded by Steve Jobs in California"
         cgc extract "The user John placed order #123" --no-gliner
+        cgc extract "Elon Musk founded SpaceX" --domain tech_startup
     """
     from cgc.discovery.extractor import extract_triplets
 
-    triplets = extract_triplets(text, use_gliner=gliner)
+    triplets = extract_triplets(text, use_gliner=gliner, domain=domain)
 
     if not triplets:
         console.print("[yellow]No triplets found[/yellow]")
         return
 
     if output:
-        data = [{"subject": t.subject, "predicate": t.predicate, "object": t.object, "confidence": t.confidence} for t in triplets]
+        data = [t.to_dict() for t in triplets]
         Path(output).write_text(json.dumps(data, indent=2))
         console.print(f"[green]Saved {len(triplets)} triplets to {output}[/green]")
     else:
@@ -512,6 +514,127 @@ def extract(
                 t.object,
                 f"{t.confidence:.2f}",
             )
+
+        console.print(table)
+
+
+@app.command(name="extract-file")
+def extract_file(
+    path: str = typer.Argument(..., help="Path to file (text, CSV, or JSON)"),
+    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+):
+    """Extract triplets from a file (text, CSV, or JSON).
+
+    For CSV/JSON files, uses structured hub-and-spoke extraction.
+    For text files, uses pattern + ML extraction.
+
+    Examples:
+        cgc extract-file ./report.txt
+        cgc extract-file ./data.json
+        cgc extract-file ./sales.csv --domain ecommerce_retail
+    """
+    file_path = Path(path)
+    if not file_path.exists():
+        console.print(f"[red]File not found: {path}[/red]")
+        raise typer.Exit(1)
+
+    content = file_path.read_text(encoding="utf-8", errors="replace")
+
+    # Detect structured data
+    if file_path.suffix.lower() in (".json",):
+        try:
+            data = json.loads(content)
+            if isinstance(data, list) and data and isinstance(data[0], dict):
+                from cgc.discovery.structured import StructuredExtractor
+                extractor = StructuredExtractor()
+                triplets = extractor.extract_triplets(data)
+                _display_triplets(triplets, output, f"Structured Triplets ({file_path.name})")
+                return
+        except json.JSONDecodeError:
+            pass
+
+    # Text extraction
+    from cgc.discovery.extractor import extract_triplets
+    triplets = extract_triplets(content, use_gliner=True, domain=domain)
+    _display_triplets(triplets, output, f"Extracted Triplets ({file_path.name})")
+
+
+@app.command(name="detect-domain")
+def detect_domain(
+    text: str = typer.Argument(..., help="Text to classify by industry domain"),
+):
+    """Detect the industry domain of text.
+
+    Uses E5 embeddings to match text against 11 industry packs.
+
+    Examples:
+        cgc detect-domain "The startup raised a Series B round"
+        cgc detect-domain "Patient diagnosed with Type 2 diabetes"
+    """
+    from cgc.discovery.router import create_router
+
+    router = create_router()
+    result = router.route(text)
+
+    console.print(f"\n[bold]Domain:[/bold] {result.pack.name} ({result.pack.id})")
+    console.print(f"[bold]Confidence:[/bold] {result.confidence:.3f}")
+    console.print(f"\n[bold]Entity labels:[/bold] {', '.join(result.pack.entity_labels)}")
+    console.print(f"[bold]Relation labels:[/bold] {', '.join(result.pack.relation_labels)}")
+
+    # Show top 5 scores
+    console.print("\n[bold]Top scores:[/bold]")
+    sorted_scores = sorted(result.scores.items(), key=lambda x: x[1], reverse=True)
+    for pack_id, score in sorted_scores[:5]:
+        marker = " [green]←[/green]" if pack_id == result.pack.id else ""
+        console.print(f"  {pack_id}: {score:.3f}{marker}")
+
+
+@app.command(name="list-packs")
+def list_packs():
+    """List all available industry packs for domain-specific extraction."""
+    from cgc.discovery.industry_packs import get_all_packs
+
+    packs = get_all_packs()
+    table = Table(title=f"Industry Packs ({len(packs)})")
+    table.add_column("ID")
+    table.add_column("Name")
+    table.add_column("Entities")
+    table.add_column("Relations")
+
+    for pack in packs:
+        table.add_row(
+            pack.id,
+            pack.name,
+            str(len(pack.entity_labels)),
+            str(len(pack.relation_labels)),
+        )
+
+    console.print(table)
+
+
+def _display_triplets(triplets: list, output: Optional[str], title: str):
+    """Display triplets in table or save to file."""
+    if not triplets:
+        console.print("[yellow]No triplets found[/yellow]")
+        return
+
+    if output:
+        data = [t.to_dict() for t in triplets]
+        Path(output).write_text(json.dumps(data, indent=2))
+        console.print(f"[green]Saved {len(triplets)} triplets to {output}[/green]")
+    else:
+        table = Table(title=title)
+        table.add_column("Subject")
+        table.add_column("Predicate")
+        table.add_column("Object")
+        table.add_column("Confidence")
+
+        for t in triplets[:50]:
+            table.add_row(t.subject, t.predicate, t.object, f"{t.confidence:.2f}")
+
+        if len(triplets) > 50:
+            console.print(f"[dim]Showing first 50 of {len(triplets)} triplets[/dim]")
 
         console.print(table)
 
@@ -584,6 +707,9 @@ def version():
     console.print("  cgc sql            Execute SQL query")
     console.print("  cgc chunk          Chunk data for AI processing")
     console.print("  cgc extract        Extract triplets from text")
+    console.print("  cgc extract-file   Extract triplets from file")
+    console.print("  cgc detect-domain  Detect industry domain of text")
+    console.print("  cgc list-packs     List available industry packs")
     console.print("  cgc health         Check data source health")
 
 

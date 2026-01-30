@@ -329,25 +329,56 @@ class RelationshipDiscoveryEngine:
         text: str,
         source_id: str = "text",
         use_gliner: bool = True,
+        domain: str | None = None,
     ) -> list[Relationship]:
         """Extract relationships from unstructured text.
 
-        Uses hybrid triplet extraction (patterns + GliNER) to find
+        Uses hybrid triplet extraction (patterns + GliNER + GliREL) to find
         semantic relationships in text content.
 
         Args:
             text: Input text
             source_id: Source identifier for the relationships
             use_gliner: Whether to use GliNER for NER
+            domain: Force a specific industry pack ID (e.g., "tech_startup")
 
         Returns:
             List of semantic relationships
         """
         # Lazy import to avoid loading torch/spacy at startup
         from cgc.discovery.extractor import extract_triplets
-        triplets = extract_triplets(text, use_gliner=use_gliner)
-        relationships = []
+        triplets = extract_triplets(text, use_gliner=use_gliner, domain=domain)
+        return self._triplets_to_relationships(triplets, source_id)
 
+    def extract_from_structured(
+        self,
+        data: list[dict],
+        source_id: str = "structured",
+    ) -> list[Relationship]:
+        """Extract relationships from structured data (CSV rows, JSON objects).
+
+        Uses hub-and-spoke model to identify primary entities and their
+        relationships to categorical columns.
+
+        Args:
+            data: List of row dicts (e.g., from CSV or JSON)
+            source_id: Source identifier for the relationships
+
+        Returns:
+            List of semantic relationships
+        """
+        from cgc.discovery.structured import StructuredExtractor
+        extractor = StructuredExtractor()
+        triplets = extractor.extract_triplets(data)
+        return self._triplets_to_relationships(triplets, source_id)
+
+    def _triplets_to_relationships(
+        self,
+        triplets: list[Triplet],
+        source_id: str,
+    ) -> list[Relationship]:
+        """Convert triplets to Relationship objects."""
+        relationships = []
         for triplet in triplets:
             rel = Relationship(
                 id=f"triplet:{source_id}:{triplet.subject}-{triplet.predicate}-{triplet.object}",
@@ -363,7 +394,6 @@ class RelationshipDiscoveryEngine:
                 },
             )
             relationships.append(rel)
-
         return relationships
 
     def _triplet_confidence(self, triplet: Triplet) -> Confidence:

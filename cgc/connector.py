@@ -357,22 +357,68 @@ class Connector:
         self,
         text: str,
         use_gliner: bool = True,
+        domain: str | None = None,
     ) -> list[Triplet]:
         """Extract triplets from text.
 
-        Uses hybrid extraction (patterns + GliNER) to find
-        subject-predicate-object relationships.
+        Uses hybrid extraction (patterns + GliNER + GliREL) to find
+        subject-predicate-object relationships with domain-specific
+        entity and relation labels.
 
         Args:
             text: Input text
             use_gliner: Whether to use GliNER (higher recall, slower)
+            domain: Force a specific industry pack (e.g., "tech_startup",
+                    "ecommerce_retail"). None for auto-detection.
 
         Returns:
             List of extracted triplets
         """
         # Lazy import to avoid loading torch/spacy at startup
         from cgc.discovery.extractor import extract_triplets
-        return extract_triplets(text, use_gliner=use_gliner)
+        return extract_triplets(text, use_gliner=use_gliner, domain=domain)
+
+    def extract_triplets_structured(
+        self,
+        data: list[dict[str, Any]],
+    ) -> list[Triplet]:
+        """Extract triplets from structured data using hub-and-spoke model.
+
+        Classifies columns into types (primary entity, entity, property, etc.)
+        and builds relationships between the hub entity and categorical values.
+
+        Args:
+            data: List of row dicts (e.g., from CSV or JSON)
+
+        Returns:
+            List of extracted triplets
+        """
+        from cgc.discovery.structured import StructuredExtractor
+        extractor = StructuredExtractor()
+        return extractor.extract_triplets(data)
+
+    def detect_domain(self, text: str) -> dict[str, Any]:
+        """Detect the industry domain of text for optimized extraction.
+
+        Routes text to the best-matching industry pack using E5 embeddings.
+
+        Args:
+            text: Input text to classify
+
+        Returns:
+            Dict with pack_id, pack_name, confidence, and all scores
+        """
+        from cgc.discovery.router import create_router
+        router = create_router()
+        result = router.route(text)
+        return {
+            "pack_id": result.pack.id,
+            "pack_name": result.pack.name,
+            "confidence": result.confidence,
+            "entity_labels": result.pack.entity_labels,
+            "relation_labels": result.pack.relation_labels,
+            "scores": result.scores,
+        }
 
     # === Health Checks ===
 

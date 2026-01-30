@@ -173,7 +173,20 @@ class TripletRequest(BaseModel):
     """Triplet extraction request."""
 
     text: str = Field(..., min_length=1, max_length=100000)
-    use_gliner: bool = False
+    use_gliner: bool = True
+    domain: str | None = None
+
+
+class StructuredExtractionRequest(BaseModel):
+    """Structured data extraction request."""
+
+    data: list[dict[str, Any]]
+
+
+class DomainDetectionRequest(BaseModel):
+    """Domain detection request."""
+
+    text: str = Field(..., min_length=1, max_length=100000)
 
 
 class FindRelatedRequest(BaseModel):
@@ -787,7 +800,36 @@ async def extract_triplets(request: TripletRequest):
     connector = get_connector()
 
     try:
-        triplets = connector.extract_triplets(request.text, use_gliner=request.use_gliner)
+        triplets = connector.extract_triplets(
+            request.text, use_gliner=request.use_gliner, domain=request.domain
+        )
+        return {
+            "triplets": [
+                {
+                    "subject": t.subject,
+                    "predicate": t.predicate,
+                    "object": t.object,
+                    "confidence": t.confidence,
+                    "source_text": t.source_text,
+                    "subject_label": t.metadata.get("subject_label") if t.metadata else None,
+                    "object_label": t.metadata.get("object_label") if t.metadata else None,
+                }
+                for t in triplets
+            ],
+            "count": len(triplets),
+        }
+    except Exception as e:
+        error_msg = mask_credentials(str(e))
+        raise HTTPException(500, error_msg)
+
+
+@app.post("/extract/structured", dependencies=[Security(verify_api_key)])
+async def extract_structured(request: StructuredExtractionRequest):
+    """Extract triplets from structured data using hub-and-spoke model."""
+    connector = get_connector()
+
+    try:
+        triplets = connector.extract_triplets_structured(request.data)
         return {
             "triplets": [
                 {
@@ -799,10 +841,45 @@ async def extract_triplets(request: TripletRequest):
                 for t in triplets
             ],
             "count": len(triplets),
+            "rows_processed": len(request.data),
         }
     except Exception as e:
         error_msg = mask_credentials(str(e))
         raise HTTPException(500, error_msg)
+
+
+@app.post("/detect/domain", dependencies=[Security(verify_api_key)])
+async def detect_domain(request: DomainDetectionRequest):
+    """Detect the industry domain of text for optimized extraction."""
+    connector = get_connector()
+
+    try:
+        result = connector.detect_domain(request.text)
+        return result
+    except Exception as e:
+        error_msg = mask_credentials(str(e))
+        raise HTTPException(500, error_msg)
+
+
+@app.get("/packs", dependencies=[Security(verify_api_key)])
+async def list_packs():
+    """List all available industry packs for domain-specific extraction."""
+    from cgc.discovery.industry_packs import get_all_packs
+
+    packs = get_all_packs()
+    return {
+        "packs": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "entity_labels": p.entity_labels,
+                "relation_labels": p.relation_labels,
+            }
+            for p in packs
+        ],
+        "count": len(packs),
+    }
 
 
 @app.get("/summary", dependencies=[Security(verify_api_key)])
