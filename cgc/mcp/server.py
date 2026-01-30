@@ -565,7 +565,7 @@ def create_server() -> Server:
                 data = graph.to_dict()
                 summary = f"Relationships: {data['total']}\n\n"
                 for rel in data["relationships"][:20]:
-                    summary += f"- {rel['from']} → {rel['to']} ({rel['type']}, {rel['confidence']})\n"
+                    summary += f"- {rel['from']} -> {rel['to']} ({rel['type']}, {rel['confidence']})\n"
                 if data["total"] > 20:
                     summary += f"... and {data['total'] - 20} more"
                 return CallToolResult(
@@ -605,7 +605,7 @@ def create_server() -> Server:
                 statuses = await connector.health_check()
                 result = "Health check:\n\n"
                 for source_id, status in statuses.items():
-                    icon = "✓" if status.healthy else "✗"
+                    icon = "OK" if status.healthy else "X"
                     result += f"{icon} {source_id}: {'healthy' if status.healthy else status.message}"
                     if status.healthy and status.latency_ms:
                         result += f" ({status.latency_ms:.1f}ms)"
@@ -732,7 +732,7 @@ Size:
   Limit:      {stats.size_limit:,} bytes
   Usage:      {stats.size_percent:.1f}%
 
-Status: {"⚠️ Session will be rotated on next save" if stats.needs_rotation else "✓ Healthy"}"""
+Status: {"WARNING: Session will be rotated on next save" if stats.needs_rotation else "OK - Healthy"}"""
 
                 return CallToolResult(
                     content=[TextContent(type="text", text=result)]
@@ -751,7 +751,7 @@ Status: {"⚠️ Session will be rotated on next save" if stats.needs_rotation e
                     result += "(No sessions found)\n"
                 else:
                     for s in sessions[:20]:  # Show last 20
-                        compressed = "📦" if s.get("compressed") else "📄"
+                        compressed = "[Z]" if s.get("compressed") else "[F]"
                         size_kb = s["size_bytes"] / 1024
                         result += f"{compressed} {s['id']} - {size_kb:.1f}KB - {s['modified']}\n"
 
@@ -766,7 +766,7 @@ Status: {"⚠️ Session will be rotated on next save" if stats.needs_rotation e
                     else:
                         for s in archived[:10]:
                             size_kb = s["size_bytes"] / 1024
-                            result += f"🗄️ {s['id']} - {size_kb:.1f}KB - {s['modified']}\n"
+                            result += f"[A] {s['id']} - {size_kb:.1f}KB - {s['modified']}\n"
 
                         if len(archived) > 10:
                             result += f"  ...and {len(archived) - 10} more\n"

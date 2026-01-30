@@ -248,7 +248,7 @@ def _extract_founded(match: re.Match, text: str) -> Triplet | None:
 
 def _extract_founded_by(match: re.Match, text: str) -> Triplet | None:
     """Y, founded/established by X"""
-    person = match.group(2).strip().rstrip(".,!?")
+    person = match.group(1).strip().rstrip(".,!?")
     # The org is captured before the pattern in context; use text before match
     org_end = match.start()
     org_text = text[max(0, org_end - 60):org_end].strip().rstrip(",;: ")
@@ -283,7 +283,7 @@ def _extract_em_dash_role(match: re.Match, text: str) -> Triplet | None:
 
 def _extract_led_by(match: re.Match, text: str) -> Triplet | None:
     """led/managed by X"""
-    person = match.group(2).strip().rstrip(".,!?")
+    person = match.group(1).strip().rstrip(".,!?")
     if person:
         return Triplet(subject=person, predicate="LEADS", object="[context]",
                        confidence=0.85, source_span=(match.start(), match.end()),
@@ -543,7 +543,7 @@ def _extract_competes(match: re.Match, text: str) -> Triplet | None:
 def _extract_dept_handles(match: re.Match, text: str) -> Triplet | None:
     """X Department handles/manages Y"""
     dept = match.group(1).strip()
-    obj = match.group(3).strip().rstrip(".,!?")
+    obj = match.group(2).strip().rstrip(".,!?")
     if dept and obj:
         return Triplet(subject=dept, predicate="HANDLES", object=obj,
                        confidence=0.85, source_span=(match.start(), match.end()),
@@ -609,7 +609,7 @@ PATTERNS: list[ConversationalPattern] = [
     ),
     ConversationalPattern(
         name="x_is_my",
-        regex=re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+is\s+my\s+(.+?)(?:\.|$)", re.IGNORECASE),
+        regex=re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+is\s+my\s+(.+?)(?:\.|$)"),
         extractor=_extract_x_is_my, confidence=0.85,
     ),
     ConversationalPattern(
@@ -655,7 +655,7 @@ PATTERNS: list[ConversationalPattern] = [
     ),
     ConversationalPattern(
         name="founded_by",
-        regex=re.compile(r"\b(?:founded|established|co-founded)\s+by\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)", re.IGNORECASE),
+        regex=re.compile(r"\b(?:founded|established|co-founded)\s+by\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)"),
         extractor=_extract_founded_by, confidence=0.85,
     ),
     ConversationalPattern(
@@ -665,7 +665,7 @@ PATTERNS: list[ConversationalPattern] = [
     ),
     ConversationalPattern(
         name="led_by",
-        regex=re.compile(rf"\b(led|managed|headed|directed)\s+by\s+{_PN}", re.IGNORECASE),
+        regex=re.compile(rf"\b(?:[Ll]ed|[Mm]anaged|[Hh]eaded|[Dd]irected)\s+by\s+{_PN}"),
         extractor=_extract_led_by, confidence=0.85,
     ),
     ConversationalPattern(
@@ -702,7 +702,7 @@ PATTERNS: list[ConversationalPattern] = [
     ),
     ConversationalPattern(
         name="position_at",
-        regex=re.compile(r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*\s+(?:Manager|Director|Lead|Head|Officer|Coordinator|Analyst|Engineer|Specialist|Supervisor))\s+at\s+([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*)", re.IGNORECASE),
+        regex=re.compile(r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*\s+(?:Manager|Director|Lead|Head|Officer|Coordinator|Analyst|Engineer|Specialist|Supervisor))\s+at\s+([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*)"),
         extractor=_extract_position_at, confidence=0.88,
     ),
 
@@ -782,12 +782,12 @@ PATTERNS: list[ConversationalPattern] = [
     # --- Departments ---
     ConversationalPattern(
         name="dept_handles",
-        regex=re.compile(r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*)\s+(?:Department|Team|Division)\s+(handles?|manages?|oversees?)\s+(.+?)(?:\.|$)", re.IGNORECASE),
+        regex=re.compile(r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*)\s+(?:Department|Team|Division)\s+(?:handles?|manages?|oversees?)\s+(.+?)(?:\.|$)"),
         extractor=_extract_dept_handles, confidence=0.85,
     ),
     ConversationalPattern(
         name="dept_part_of",
-        regex=re.compile(r"\b([A-Z][a-zA-Z]+(?:'s|\u2019s)?)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*\s+(?:Department|Team|Division))", re.IGNORECASE),
+        regex=re.compile(r"\b([A-Z][a-zA-Z]+(?:'s|\u2019s)?)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z]?[a-zA-Z]+)*\s+(?:Department|Team|Division))"),
         extractor=_extract_dept_part_of, confidence=0.88,
     ),
 

@@ -586,7 +586,7 @@ def detect_domain(
     console.print("\n[bold]Top scores:[/bold]")
     sorted_scores = sorted(result.scores.items(), key=lambda x: x[1], reverse=True)
     for pack_id, score in sorted_scores[:5]:
-        marker = " [green]←[/green]" if pack_id == result.pack.id else ""
+        marker = " [green]<--[/green]" if pack_id == result.pack.id else ""
         console.print(f"  {pack_id}: {score:.3f}{marker}")
 
 
@@ -676,9 +676,9 @@ def health(
             status = await connector.health_check_source(source_id)
 
             if status.healthy:
-                console.print(f"[green]✓ Healthy[/green] ({status.latency_ms:.1f}ms)")
+                console.print(f"[green]OK Healthy[/green] ({status.latency_ms:.1f}ms)")
             else:
-                console.print(f"[red]✗ Unhealthy[/red]: {status.message}")
+                console.print(f"[red]X Unhealthy[/red]: {status.message}")
                 raise typer.Exit(1)
 
         finally:
