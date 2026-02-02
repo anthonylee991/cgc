@@ -10,12 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy the full CGC package (extraction code lives here)
 COPY cgc/ ./cgc/
 COPY pyproject.toml ./
+RUN touch README.md
 
 # Copy relay-api as relay_api (underscore for Python imports)
 COPY relay-api/ ./relay_api/
 
 # Install CGC package and relay dependencies
-RUN pip install --no-cache-dir -e . && \
+RUN pip install --no-cache-dir . && \
     pip install --no-cache-dir -r relay_api/requirements.txt
 
 # Download spacy model if needed
