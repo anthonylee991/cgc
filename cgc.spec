@@ -36,6 +36,11 @@ a = Analysis(
         'cgc.discovery.glirel',
         'cgc.discovery.unified',
         'cgc.discovery.router',
+        # Licensing (v0.3.0)
+        'cgc.licensing',
+        'cgc.licensing.store',
+        'cgc.licensing.tier',
+        'cgc.licensing.validator',
     ],
     hookspath=['hooks'],
     hooksconfig={},

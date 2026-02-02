@@ -1,6 +1,19 @@
 # CGC API Reference
 
-This guide explains how to use CGC to connect your data to AI tools and automation platforms.
+This guide explains how to use CGC's HTTP API to connect your data to AI tools and automation platforms.
+
+---
+
+## Table of Contents
+
+- [Understanding CGC](#understanding-cgc-what-it-does-and-doesnt-do)
+- [Free vs Pro Endpoints](#free-vs-pro-endpoints)
+- [Common Workflows](#common-workflows-step-by-step)
+- [Quick Start](#quick-start)
+- [All Endpoints](#all-endpoints-reference)
+- [Using with PowerShell](#using-with-powershell-windows)
+- [Using with n8n](#using-with-n8n)
+- [Error Reference](#error-reference)
 
 ---
 
@@ -10,14 +23,17 @@ Before diving into the API, it's important to understand what CGC handles and wh
 
 ### What CGC Does
 
-| Task | CGC Handles It? | Description |
-|------|-----------------|-------------|
-| Connect to files | Yes | Point CGC at a folder, it reads PDFs, Word docs, text files |
-| Connect to databases | Yes | PostgreSQL, MySQL, SQLite - CGC reads your tables |
-| Break documents into chunks | Yes | Split large files into AI-sized pieces |
-| Search text (keyword) | Yes | Find text patterns in files or database fields |
-| Extract relationships from text | Yes | Find "who did what to whom" in sentences |
-| Connect to vector databases | Yes | Qdrant, Pinecone, pgvector |
+| Task | Tier | Description |
+|------|------|-------------|
+| Connect to files | Free | Point CGC at a folder, it reads PDFs, Word docs, text files |
+| Connect to databases | Free | PostgreSQL, MySQL, SQLite - CGC reads your tables |
+| Break documents into chunks | Free | Split large files into AI-sized pieces |
+| Search text (keyword) | Free | Find text patterns in files or database fields |
+| Connect to vector databases | Free | Qdrant, Pinecone, pgvector |
+| Schema discovery and sampling | Free | Explore your data structure without reading everything |
+| Extract relationships from text | Trial/Pro | Find "who did what to whom" in sentences |
+| Extract from files (CSV, Excel, JSON) | Trial/Pro | Convert structured data into knowledge graph triplets |
+| Domain detection | Trial/Pro | Classify text by industry for optimized extraction |
 
 ### What CGC Does NOT Do
 
@@ -27,19 +43,32 @@ Before diving into the API, it's important to understand what CGC handles and wh
 | Store extracted triplets | You decide | Database, Neo4j, or JSON file |
 | Summarize text | External AI | OpenAI, Claude, etc. |
 
-### Important Concept: Vector Search Requires Pre-Embedded Queries
+---
 
-When searching a vector database, you can't just send text like "find similar documents about cats".
+## Free vs Pro Endpoints
 
-**The workflow is:**
-```
-1. You have: "find documents about cats"
-2. You must FIRST: Send to OpenAI/Cohere to get embeddings → [0.023, -0.156, 0.892, ...]
-3. THEN send: Those numbers to CGC's vector search
-4. CGC returns: Similar documents from your vector store
-```
+| Endpoint | Free | Trial/Pro |
+|----------|------|-----------|
+| `GET /health` | Yes | Yes |
+| `GET /sources`, `POST /sources`, `DELETE /sources/{id}` | Yes | Yes |
+| `GET /sources/{id}/schema` | Yes | Yes |
+| `GET /schemas` | Yes | Yes |
+| `POST /query/sql` | Yes | Yes |
+| `POST /query/search` | Yes | Yes |
+| `POST /query/vector` | Yes | Yes |
+| `POST /sample` | Yes | Yes |
+| `POST /chunk` | Yes | Yes |
+| `GET /graph` | Yes | Yes |
+| `POST /graph/find-related` | Yes | Yes |
+| `GET /summary` | Yes | Yes |
+| `POST /extract/triplets` | -- | Yes |
+| `POST /extract/structured` | -- | Yes |
+| `POST /extract/file` | -- | Yes |
+| `POST /extract/chunked` | -- | Yes |
+| `POST /detect/domain` | -- | Yes |
+| `GET /packs` | -- | Yes |
 
-CGC doesn't do step 2 for you. You need an embedding service.
+Extraction endpoints return a `403` error on the free tier with instructions to upgrade.
 
 ---
 
@@ -100,8 +129,7 @@ POST http://localhost:8420/chunk
 {
   "chunks": [
     {"index": 0, "content": "Chapter 1: Introduction..."},
-    {"index": 1, "content": "Chapter 2: Market Analysis..."},
-    ...
+    {"index": 1, "content": "Chapter 2: Market Analysis..."}
   ],
   "total_chunks": 15
 }
@@ -111,13 +139,13 @@ POST http://localhost:8420/chunk
 
 ---
 
-### Workflow 3: Extract Knowledge from Text
+### Workflow 3: Extract Knowledge from Text (Trial/Pro)
 
 **Goal:** Build a knowledge graph from documents
 
 **What is a triplet?** A simple fact: `(Subject, Relationship, Object)`
-- "Apple was founded by Steve Jobs" → `(Apple, founded by, Steve Jobs)`
-- "Paris is the capital of France" → `(Paris, capital of, France)`
+- "Apple was founded by Steve Jobs" --> `(Apple, founded by, Steve Jobs)`
+- "Paris is the capital of France" --> `(Paris, capital of, France)`
 
 **Step 1:** Get your document text (from chunking or search)
 
@@ -147,7 +175,63 @@ POST http://localhost:8420/extract/triplets
 
 ---
 
-### Workflow 4: Vector/Semantic Search
+### Workflow 4: Extract from Structured Data (Trial/Pro)
+
+**Goal:** Convert a CSV or Excel file into knowledge graph triplets
+
+**Step 1:** Upload the file
+```
+POST http://localhost:8420/extract/file
+Content-Type: multipart/form-data
+
+file: employees.csv
+```
+
+**Result:**
+```json
+{
+  "triplets": [
+    {"subject": "Alice", "predicate": "IN_DEPARTMENT", "object": "Engineering", "confidence": 0.9},
+    {"subject": "Alice", "predicate": "LOCATED_IN", "object": "NYC", "confidence": 0.9},
+    {"subject": "Bob", "predicate": "IN_DEPARTMENT", "object": "Sales", "confidence": 0.9}
+  ],
+  "count": 6,
+  "file_type": "structured",
+  "filename": "employees.csv"
+}
+```
+
+---
+
+### Workflow 5: Chunk Then Extract (Trial/Pro)
+
+**Goal:** Process a large file by chunking it first, then extracting from each chunk
+
+**Step 1:** Send a chunked extraction request
+```
+POST http://localhost:8420/extract/chunked
+{
+  "source_id": "my_docs",
+  "entity": "big-report.pdf",
+  "strategy": "tokens:2000",
+  "use_gliner": false
+}
+```
+
+**Result:**
+```json
+{
+  "chunks_processed": 15,
+  "total_triplets": 47,
+  "triplets": [...]
+}
+```
+
+This is a convenience endpoint that combines chunking + extraction in one call.
+
+---
+
+### Workflow 6: Vector/Semantic Search
 
 **Goal:** Find documents "similar to" a concept, not just keyword matches
 
@@ -155,37 +239,6 @@ POST http://localhost:8420/extract/triplets
 - A vector database (Qdrant, Pinecone, or pgvector)
 - An embedding service (OpenAI, Cohere, etc.)
 - Documents already embedded and stored in your vector DB
-
-**Why this is complex:** Vector search works with numbers, not words.
-
-**The full workflow:**
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        YOUR AUTOMATION TOOL                         │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  User asks: "Find documents about machine learning"                 │
-│                          │                                          │
-│                          ▼                                          │
-│  ┌─────────────────────────────────────┐                           │
-│  │  Step 1: Call OpenAI Embeddings API │                           │
-│  │  Input: "machine learning"          │                           │
-│  │  Output: [0.023, -0.15, 0.89, ...]  │                           │
-│  └─────────────────────────────────────┘                           │
-│                          │                                          │
-│                          ▼                                          │
-│  ┌─────────────────────────────────────┐                           │
-│  │  Step 2: Call CGC Vector Search     │                           │
-│  │  Input: [0.023, -0.15, 0.89, ...]   │  ◄── Numbers, not words!  │
-│  │  Output: Similar documents          │                           │
-│  └─────────────────────────────────────┘                           │
-│                          │                                          │
-│                          ▼                                          │
-│  Results: Documents about ML, AI, neural networks, etc.            │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
 
 **Step 1:** Get embeddings from OpenAI (in n8n, use the OpenAI node)
 ```
@@ -199,7 +252,7 @@ Returns: `[0.023, -0.156, 0.892, ...]` (1536 numbers)
 
 **Step 2:** Send those numbers to CGC
 ```
-POST http://localhost:8420/query/semantic
+POST http://localhost:8420/query/vector
 {
   "source_id": "my_vectors",
   "query_vector": [0.023, -0.156, 0.892, ...],
@@ -259,9 +312,9 @@ Connect a folder or database.
 ```
 POST http://localhost:8420/sources
 {
-  "source_id": "my_docs",           // Your name for it
-  "source_type": "filesystem",       // filesystem, postgres, mysql, sqlite, qdrant, etc.
-  "connection": "C:/Users/You/Docs"  // Path or connection string
+  "source_id": "my_docs",
+  "source_type": "filesystem",
+  "connection": "C:/Users/You/Docs"
 }
 ```
 
@@ -273,6 +326,7 @@ POST http://localhost:8420/sources
 - `qdrant` - Qdrant vector database
 - `pinecone` - Pinecone vector database
 - `pgvector` - PostgreSQL with pgvector extension
+- `mongodb` - MongoDB database
 
 #### Remove a Source
 ```
@@ -285,6 +339,12 @@ GET http://localhost:8420/sources/my_docs/schema
 ```
 Returns list of files (filesystem) or tables (database).
 
+#### Discover All Schemas
+```
+GET http://localhost:8420/schemas
+```
+Returns schemas for all connected sources at once.
+
 ---
 
 ### Searching
@@ -296,8 +356,8 @@ POST http://localhost:8420/query/search
 {
   "source_id": "my_docs",
   "query": "revenue growth",
-  "entity": "report.pdf",        // Optional: specific file
-  "fuzzy_fallback": true         // Try fuzzy if no exact match
+  "entity": "report.pdf",
+  "fuzzy_fallback": true
 }
 ```
 
@@ -314,10 +374,10 @@ Note: Only SELECT queries allowed for safety.
 #### Vector/Semantic Search
 **Requires:** Pre-embedded query vector from OpenAI/Cohere.
 ```
-POST http://localhost:8420/query/semantic
+POST http://localhost:8420/query/vector
 {
   "source_id": "my_vectors",
-  "query_vector": [0.023, -0.156, ...],  // From embedding API
+  "query_vector": [0.023, -0.156, ...],
   "top_k": 10
 }
 ```
@@ -333,7 +393,7 @@ POST http://localhost:8420/chunk
 {
   "source_id": "my_docs",
   "entity": "big-report.pdf",
-  "strategy": "tokens:2000"       // ~2000 tokens per chunk
+  "strategy": "tokens:2000"
 }
 ```
 
@@ -361,10 +421,40 @@ POST http://localhost:8420/sample
 
 ---
 
-### Extracting Knowledge
+### Relationships and Context
 
-#### Extract Triplets
-Find facts/relationships in text. **Does not store them - just extracts.**
+#### Get Relationship Graph
+```
+GET http://localhost:8420/graph
+```
+Returns how tables and entities relate to each other across all sources.
+
+#### Find Related Records
+```
+POST http://localhost:8420/graph/find-related
+{
+  "source_id": "mydb",
+  "entity": "users",
+  "field": "id",
+  "value": "42"
+}
+```
+Finds all records related to a specific value across all sources.
+
+#### Get Summary
+```
+GET http://localhost:8420/summary
+```
+Returns a compact overview of all connected sources and their schemas. Useful for giving AI context about available data.
+
+---
+
+### Extracting Knowledge (Trial/Pro)
+
+These endpoints require an active trial or Pro license.
+
+#### Extract Triplets from Text
+Find facts/relationships in text.
 ```
 POST http://localhost:8420/extract/triplets
 {
@@ -378,7 +468,7 @@ POST http://localhost:8420/extract/triplets
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `text` | string | required | Text to extract from |
-| `use_gliner` | boolean | `true` | Use GliNER ML model (higher recall, slower). Set `false` for pattern-only extraction. |
+| `use_gliner` | boolean | `true` | Use GliNER ML model (higher recall). Set `false` for pattern-only extraction. |
 | `domain` | string | `null` | Force an industry pack (e.g., `"tech_startup"`, `"healthcare_medical"`). `null` for auto-detection. |
 
 Returns:
@@ -422,6 +512,49 @@ Returns:
 }
 ```
 
+#### Extract from File Upload
+Upload a file and extract triplets. Supports CSV, JSON, XLS, XLSX (structured) and text, PDF, Markdown (unstructured).
+```
+POST http://localhost:8420/extract/file
+Content-Type: multipart/form-data
+
+file: (your file)
+domain: tech_startup          (optional)
+use_gliner: true              (optional, default: true)
+```
+
+Returns:
+```json
+{
+  "triplets": [...],
+  "count": 12,
+  "file_type": "structured",
+  "filename": "employees.csv"
+}
+```
+
+#### Chunk Then Extract
+Chunk a file from a connected source, then extract triplets from each chunk.
+```
+POST http://localhost:8420/extract/chunked
+{
+  "source_id": "my_docs",
+  "entity": "big-report.pdf",
+  "strategy": "tokens:2000",
+  "use_gliner": false,
+  "domain": null
+}
+```
+
+Returns:
+```json
+{
+  "chunks_processed": 15,
+  "total_triplets": 47,
+  "triplets": [...]
+}
+```
+
 #### Detect Domain
 Classify text into an industry domain for optimized extraction.
 ```
@@ -437,9 +570,9 @@ Returns:
   "pack_id": "tech_startup",
   "pack_name": "Tech / Startup",
   "confidence": 0.848,
-  "entity_labels": ["person", "company", "product", "technology", ...],
-  "relation_labels": ["founded", "leads", "built with", ...],
-  "scores": {"tech_startup": 0.848, "finance_investment": 0.753, ...}
+  "entity_labels": ["person", "company", "product", "technology"],
+  "relation_labels": ["founded", "leads", "built with"],
+  "scores": {"tech_startup": 0.848, "finance_investment": 0.753}
 }
 ```
 
@@ -498,16 +631,6 @@ PowerShell truncates long output. Use these tricks to see everything:
 **Convert to JSON (best for nested data):**
 ```powershell
 (Invoke-RestMethod -Uri "http://localhost:8420/query/sql" -Method POST -ContentType "application/json" -Body '{"source_id": "mydb", "sql": "SELECT * FROM users"}').rows | ConvertTo-Json
-```
-
-**Format as a list:**
-```powershell
-(Invoke-RestMethod -Uri "http://localhost:8420/query/sql" -Method POST -ContentType "application/json" -Body '{"source_id": "mydb", "sql": "SELECT * FROM users"}').rows | Format-List
-```
-
-**Format as auto-sized table:**
-```powershell
-(Invoke-RestMethod -Uri "http://localhost:8420/query/sql" -Method POST -ContentType "application/json" -Body '{"source_id": "mydb", "sql": "SELECT * FROM users"}').rows | Format-Table -AutoSize -Wrap
 ```
 
 **Save to a variable first:**
@@ -584,6 +707,7 @@ If using n8n's AI Agent with HTTP Request Tool nodes, you may see "Field require
 | Error | Meaning | Fix |
 |-------|---------|-----|
 | 401 Unauthorized | Missing API key | Add `X-API-Key` header (secure mode) |
+| 403 Forbidden | Free tier trying to use extraction | Activate a Pro license: `cgc activate <key>` |
 | 404 Source Not Found | Source not connected | Add source first with POST /sources |
 | 422 Validation Error | Bad input format | Check that entity is a string, not JSON object |
 | 400 SQL Blocked | Dangerous SQL | Only SELECT queries allowed |
@@ -606,4 +730,4 @@ If using n8n's AI Agent with HTTP Request Tool nodes, you may see "Field require
 
 - [CLI Reference](CLI.md) - Command-line usage
 - [MCP Reference](MCP.md) - Claude integration
-- [Technical Overview](TECHNICAL.md) - Architecture details
+- [Security Guide](SECURITY.md) - Securing your CGC installation

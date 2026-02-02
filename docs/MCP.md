@@ -10,6 +10,7 @@ This guide explains how to connect CGC to Claude Desktop, Claude Code, or other 
 - [Setup for Claude Desktop](#setup-for-claude-desktop)
 - [Setup for Claude Code (VS Code)](#setup-for-claude-code-vs-code)
 - [Available Tools](#available-tools)
+- [Free vs Pro Tools](#free-vs-pro-tools)
 - [Example Conversations](#example-conversations)
 - [Session Tracking](#session-tracking)
 - [Troubleshooting](#troubleshooting)
@@ -73,7 +74,7 @@ Open the file in a text editor (like Notepad). If the file doesn't exist, create
 
 Replace `C:\\path\\to\\cgc_mcp.exe` with the actual path to your executable.
 
-> **Note:** The MCP server uses a separate, lightweight executable (`cgc_mcp.exe`) optimized for fast startup. The full `cgc.exe` includes additional features like triplet extraction that require ML libraries.
+> **Note:** The MCP server uses a separate, lightweight executable (`cgc_mcp.exe`) optimized for fast startup. It provides all context extension tools (discover, sample, chunk, search, SQL) without requiring ML libraries. Graph extraction is available via the CLI or API.
 
 **Example (Windows):**
 ```json
@@ -182,6 +183,7 @@ Once connected, Claude has access to these tools:
 | Tool | What it does |
 |------|--------------|
 | `cgc_discover` | See tables, columns, files in a source |
+| `cgc_discover_all` | Discover schemas for all connected sources |
 | `cgc_sample` | Get sample rows from a table or file |
 | `cgc_sql` | Run SQL queries on databases |
 | `cgc_search` | Search for text patterns |
@@ -192,7 +194,7 @@ Once connected, Claude has access to these tools:
 |------|--------------|
 | `cgc_chunk` | Break large data into smaller pieces |
 
-### Context & Relationships
+### Context and Relationships
 
 | Tool | What it does |
 |------|--------------|
@@ -217,6 +219,25 @@ Once connected, Claude has access to these tools:
 | `cgc_session_load` | Resume a previous session |
 | `cgc_session_stats` | Check session health and size usage |
 | `cgc_session_list` | List all sessions (including archived) |
+
+---
+
+## Free vs Pro Tools
+
+All MCP tools are available on the free tier. The MCP server provides context extension -- connecting to data, exploring schemas, sampling, chunking, searching, and running SQL queries. These features work without a license.
+
+**Graph extraction** (converting text into knowledge graph triplets) is available via the CLI (`cgc extract`, `cgc extract-file`) or the HTTP API (`POST /extract/*`). Extraction requires an active trial or Pro license.
+
+| MCP (all tiers) | CLI/API (Trial/Pro only) |
+|------------------|--------------------------|
+| Connect to data sources | Extract triplets from text |
+| Discover schemas | Extract from files (CSV, Excel, JSON) |
+| Sample data | Chunk-then-extract workflow |
+| Run SQL queries | Domain detection |
+| Search text patterns | Industry pack routing |
+| Chunk large files | |
+| Find relationships | |
+| Session tracking | |
 
 ---
 
@@ -606,4 +627,4 @@ Pass environment variables to CGC:
 
 - [API Reference](API.md) - Use CGC with automation tools
 - [CLI Reference](CLI.md) - Command-line usage
-- [Technical Overview](TECHNICAL.md) - How CGC works under the hood
+- [Security Guide](SECURITY.md) - Securing your CGC installation

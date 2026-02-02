@@ -16,6 +16,12 @@ This guide explains all the commands you can run from your terminal or command p
   - [cgc sql](#cgc-sql)
   - [cgc chunk](#cgc-chunk)
   - [cgc extract](#cgc-extract)
+  - [cgc extract-file](#cgc-extract-file)
+  - [cgc detect-domain](#cgc-detect-domain)
+  - [cgc list-packs](#cgc-list-packs)
+  - [cgc activate](#cgc-activate)
+  - [cgc license](#cgc-license)
+  - [cgc deactivate](#cgc-deactivate)
   - [cgc health](#cgc-health)
   - [cgc version](#cgc-version)
 - [Tips and Tricks](#tips-and-tricks)
@@ -66,21 +72,40 @@ This shows all available commands.
 
 ## Quick Reference
 
+### Context Extension (Free)
+
+These commands work on all tiers, no license required.
+
 | Command | What it does | Example |
 |---------|--------------|---------|
 | `cgc serve` | Start the API server | `cgc serve` |
 | `cgc serve --secure` | Start secure API server | `cgc serve --secure` |
 | `cgc mcp` | Start the MCP server | `cgc mcp` |
-| `cgc discover` | See what's in a source | `cgc discover mydb` |
-| `cgc sample` | View sample data | `cgc sample mydb users 5` |
-| `cgc sql` | Run a SQL query | `cgc sql mydb "SELECT * FROM users"` |
-| `cgc chunk` | Break data into pieces | `cgc chunk mydb report.pdf` |
-| `cgc extract` | Extract relationships | `cgc extract "John works at Apple"` |
+| `cgc discover` | See what's in a source | `cgc discover sqlite ./mydata.db` |
+| `cgc sample` | View sample data | `cgc sample sqlite ./mydata.db users 5` |
+| `cgc sql` | Run a SQL query | `cgc sql sqlite ./mydata.db "SELECT * FROM users"` |
+| `cgc chunk` | Break data into pieces | `cgc chunk filesystem ./docs report.pdf` |
+| `cgc health` | Check connection | `cgc health postgres "postgresql://..."` |
+| `cgc version` | Show version | `cgc version` |
+
+### Graph Extraction (Trial / Pro)
+
+These commands require an active trial or Pro license.
+
+| Command | What it does | Example |
+|---------|--------------|---------|
+| `cgc extract` | Extract relationships from text | `cgc extract "John works at Apple"` |
 | `cgc extract-file` | Extract from a file | `cgc extract-file data.csv` |
 | `cgc detect-domain` | Detect industry domain | `cgc detect-domain "Our Series A..."` |
 | `cgc list-packs` | List industry packs | `cgc list-packs` |
-| `cgc health` | Check connection | `cgc health mydb` |
-| `cgc version` | Show version | `cgc version` |
+
+### License Management
+
+| Command | What it does | Example |
+|---------|--------------|---------|
+| `cgc activate` | Activate a Pro license | `cgc activate your-key-here` |
+| `cgc license` | Show license status | `cgc license` |
+| `cgc deactivate` | Remove license | `cgc deactivate` |
 
 ---
 
@@ -171,11 +196,12 @@ See what's inside a data source.
 
 **Format:**
 ```
-cgc discover <source_name>
+cgc discover <source_type> <connection>
 ```
 
 **Arguments:**
-- `source_name` - The name you gave when adding the source via the API
+- `source_type` - The type of source: `postgres`, `sqlite`, `mysql`, `filesystem`
+- `connection` - Connection string or path
 
 **What it shows:**
 
@@ -193,12 +219,12 @@ For file folders:
 
 **Example:**
 ```
-cgc discover mydb
+cgc discover postgres "postgresql://admin:secret@localhost:5432/company_db"
 ```
 
 **Output:**
 ```
-Source: mydb (postgres)
+Source: postgres
 Tables: 4
 
   users
@@ -222,7 +248,7 @@ Tables: 4
 - `--refresh` - Force a fresh scan (ignore cached data)
 
 ```
-cgc discover mydb --refresh
+cgc discover postgres "postgresql://..." --refresh
 ```
 
 ---
@@ -233,11 +259,12 @@ View sample rows from a table or file.
 
 **Format:**
 ```
-cgc sample <source_name> <entity> [count]
+cgc sample <source_type> <connection> <entity> [count]
 ```
 
 **Arguments:**
-- `source_name` - The name of your data source
+- `source_type` - The type of source
+- `connection` - Connection string or path
 - `entity` - Table name (for databases) or file name (for filesystems)
 - `count` (optional) - How many samples to show (default: 5)
 
@@ -245,32 +272,32 @@ cgc sample <source_name> <entity> [count]
 
 Show 5 sample users:
 ```
-cgc sample mydb users
+cgc sample postgres "postgresql://..." users
 ```
 
 Show 10 sample orders:
 ```
-cgc sample mydb orders 10
+cgc sample sqlite "./mydata.db" orders 10
 ```
 
 Show sample from a file:
 ```
-cgc sample documents report.pdf 3
+cgc sample filesystem "./documents" report.pdf 3
 ```
 
 **Output:**
 ```
-Samples from mydb.users (5 of 1,523 rows):
+Samples from users (5 rows):
 
-┌────┬─────────────────────┬────────┬─────────────────────┐
-│ id │ email               │ name   │ created_at          │
-├────┼─────────────────────┼────────┼─────────────────────┤
-│ 1  │ john@example.com    │ John   │ 2024-01-15 09:30:00 │
-│ 2  │ jane@example.com    │ Jane   │ 2024-01-16 14:22:00 │
-│ 3  │ bob@example.com     │ Bob    │ 2024-01-17 11:45:00 │
-│ 4  │ alice@example.com   │ Alice  │ 2024-01-18 16:00:00 │
-│ 5  │ charlie@example.com │ Charlie│ 2024-01-19 08:15:00 │
-└────┴─────────────────────┴────────┴─────────────────────┘
++----+---------------------+--------+---------------------+
+| id | email               | name   | created_at          |
++----+---------------------+--------+---------------------+
+| 1  | john@example.com    | John   | 2024-01-15 09:30:00 |
+| 2  | jane@example.com    | Jane   | 2024-01-16 14:22:00 |
+| 3  | bob@example.com     | Bob    | 2024-01-17 11:45:00 |
+| 4  | alice@example.com   | Alice  | 2024-01-18 16:00:00 |
+| 5  | charlie@example.com | Charlie| 2024-01-19 08:15:00 |
++----+---------------------+--------+---------------------+
 ```
 
 ---
@@ -281,33 +308,34 @@ Run a SQL query on a database.
 
 **Format:**
 ```
-cgc sql <source_name> "<query>"
+cgc sql <source_type> <connection> "<query>"
 ```
 
 **Arguments:**
-- `source_name` - The name of your database source
+- `source_type` - The type of database source
+- `connection` - Connection string
 - `query` - Your SQL query (in quotes)
 
 **Examples:**
 
 Get all users:
 ```
-cgc sql mydb "SELECT * FROM users"
+cgc sql sqlite "./mydata.db" "SELECT * FROM users"
 ```
 
 Filter with conditions:
 ```
-cgc sql mydb "SELECT * FROM orders WHERE total > 100"
+cgc sql postgres "postgresql://..." "SELECT * FROM orders WHERE total > 100"
 ```
 
 Join tables:
 ```
-cgc sql mydb "SELECT users.name, orders.total FROM users JOIN orders ON users.id = orders.user_id"
+cgc sql postgres "postgresql://..." "SELECT users.name, orders.total FROM users JOIN orders ON users.id = orders.user_id"
 ```
 
 Count records:
 ```
-cgc sql mydb "SELECT COUNT(*) as total FROM orders"
+cgc sql mysql "mysql://..." "SELECT COUNT(*) as total FROM orders"
 ```
 
 **Important Notes:**
@@ -320,13 +348,13 @@ cgc sql mydb "SELECT COUNT(*) as total FROM orders"
 Query executed in 45ms
 Rows returned: 3
 
-┌─────────┬────────┐
-│ name    │ total  │
-├─────────┼────────┤
-│ John    │ 150.00 │
-│ Jane    │ 275.50 │
-│ Bob     │ 89.99  │
-└─────────┴────────┘
++---------+--------+
+| name    | total  |
++---------+--------+
+| John    | 150.00 |
+| Jane    | 275.50 |
+| Bob     | 89.99  |
++---------+--------+
 ```
 
 ---
@@ -337,11 +365,12 @@ Break large data into smaller pieces that AI can process.
 
 **Format:**
 ```
-cgc chunk <source_name> <entity> [options]
+cgc chunk <source_type> <connection> <entity> [options]
 ```
 
 **Arguments:**
-- `source_name` - The name of your data source
+- `source_type` - The type of data source
+- `connection` - Connection string or path
 - `entity` - Table or file name to chunk
 
 **Options:**
@@ -359,22 +388,22 @@ cgc chunk <source_name> <entity> [options]
 
 Chunk by rows (good for databases):
 ```
-cgc chunk mydb large_table --strategy rows:1000
+cgc chunk sqlite "./mydata.db" large_table --strategy rows:1000
 ```
 
 Chunk by tokens (good for AI):
 ```
-cgc chunk documents report.pdf --strategy tokens:2000
+cgc chunk filesystem "./documents" report.pdf --strategy tokens:2000
 ```
 
 Chunk by sections (good for structured documents):
 ```
-cgc chunk documents manual.md --strategy sections
+cgc chunk filesystem "./documents" manual.md --strategy sections
 ```
 
 **Output:**
 ```
-Chunking: documents/report.pdf
+Chunking: report.pdf
 Strategy: tokens:2000
 
 Created 15 chunks:
@@ -384,19 +413,21 @@ Created 15 chunks:
   ...
   Chunk 14: ~1,540 tokens (pages 57-60)
 
-Use 'cgc chunk mydb report.pdf --get 0' to view a specific chunk.
+Use --get 0 to view a specific chunk.
 ```
 
 **View a specific chunk:**
 ```
-cgc chunk documents report.pdf --get 5
+cgc chunk filesystem "./documents" report.pdf --get 5
 ```
 
 ---
 
 ### cgc extract
 
-Extract relationships (subject-predicate-object) from text.
+Extract relationships (subject-predicate-object triplets) from text.
+
+**Requires:** Active trial or Pro license. With Pro, extraction uses the cloud relay (no ML setup needed). During the trial or with `--local`, extraction runs on your machine.
 
 **Format:**
 ```
@@ -409,19 +440,21 @@ cgc extract "<text>" [options]
 **Options:**
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--gliner` | Use GliNER ML model (higher recall, slower) | Off |
-| `--domain` | Force an industry pack for domain-specific extraction | Auto-detect |
+| `--gliner / --no-gliner` | Use GliNER ML model for enhanced entity recognition | On |
+| `--domain` or `-d` | Force an industry pack (e.g., `tech_startup`) | Auto-detect |
+| `--output` or `-o` | Save results to a JSON file | Display in terminal |
+| `--local` or `-l` | Force local extraction instead of cloud relay | Off (uses cloud for Pro) |
 
 **Examples:**
 
-Basic extraction (pattern-only):
+Basic extraction:
 ```
-cgc extract "Apple was founded by Steve Jobs in Cupertino, California."
+cgc extract "John Smith is the CEO of Acme Corp in New York."
 ```
 
-With AI enhancement:
+Pattern-only extraction (faster, no ML):
 ```
-cgc extract "Apple was founded by Steve Jobs in Cupertino, California." --gliner
+cgc extract "John Smith is the CEO of Acme Corp." --no-gliner
 ```
 
 With domain routing:
@@ -429,24 +462,38 @@ With domain routing:
 cgc extract "Our CTO built the API in Kubernetes." --domain tech_startup
 ```
 
+Save to file:
+```
+cgc extract "Apple was founded by Steve Jobs." --output results.json
+```
+
+Force local extraction (requires ML dependencies):
+```
+cgc extract "some text" --local
+```
+
 **Output:**
 ```
-Extracted 2 relationships:
-
-  (Apple) --[FOUNDED]--> (Steve Jobs) conf=0.92 [organization → person]
-  (Apple) --[LOCATED_IN]--> (Cupertino) conf=0.90 [organization → location]
+                        Extracted Triplets
++-------------+-----------+--------------------+------------+
+| Subject     | Predicate | Object             | Confidence |
++-------------+-----------+--------------------+------------+
+| John Smith  | is        | CEO of Acme Corp   | 0.90       |
++-------------+-----------+--------------------+------------+
 ```
 
-**Use Cases:**
-- Building knowledge graphs
-- Understanding document content
-- Finding connections in text
+**Notes:**
+- Pro users get cloud-powered extraction by default -- no ML libraries needed locally
+- Use `--local` if you have `pip install cgc[extraction]` and want to run on your machine
+- Trial users always run extraction locally
 
 ---
 
 ### cgc extract-file
 
-Extract relationships from a file (text, CSV, or JSON).
+Extract relationships from a file.
+
+**Requires:** Active trial or Pro license.
 
 **Format:**
 ```
@@ -454,24 +501,30 @@ cgc extract-file <file_path> [options]
 ```
 
 **Arguments:**
-- `file_path` - Path to a text, CSV, or JSON file
+- `file_path` - Path to a file
+
+**Supported file formats:**
+- **Structured** (hub-and-spoke extraction): CSV, JSON, XLS, XLSX
+- **Unstructured** (pattern + ML extraction): Text, PDF, Markdown, and other text files
 
 **Options:**
 | Option | Description | Default |
 |--------|-------------|---------|
-| `--gliner` | Use GliNER ML model | Off |
-| `--domain` | Force an industry pack | Auto-detect |
+| `--gliner / --no-gliner` | Use GliNER ML model (unstructured files only) | On |
+| `--domain` or `-d` | Force an industry pack | Auto-detect |
+| `--output` or `-o` | Save results to a JSON file | Display in terminal |
+| `--local` or `-l` | Force local extraction | Off (uses cloud for Pro) |
 
 **Examples:**
-
-Extract from a text file:
-```
-cgc extract-file meeting_notes.txt
-```
 
 Extract from a CSV file (structured extraction):
 ```
 cgc extract-file employees.csv
+```
+
+Extract from an Excel spreadsheet:
+```
+cgc extract-file sales_data.xlsx
 ```
 
 Extract from a JSON file (array of objects):
@@ -479,16 +532,41 @@ Extract from a JSON file (array of objects):
 cgc extract-file customer_data.json
 ```
 
+Extract from a text/PDF file (unstructured extraction):
+```
+cgc extract-file meeting_notes.txt
+```
+
+Save results:
+```
+cgc extract-file inventory.xlsx --output inventory_graph.json
+```
+
+**Output (structured file):**
+```
+                   Structured Triplets (employees.csv)
++----------+---------------+-------------+------------+
+| Subject  | Predicate     | Object      | Confidence |
++----------+---------------+-------------+------------+
+| Alice    | IN_DEPARTMENT | Engineering | 0.90       |
+| Alice    | LOCATED_IN    | NYC         | 0.90       |
+| Bob      | IN_DEPARTMENT | Sales       | 0.90       |
+| Bob      | LOCATED_IN    | SF          | 0.90       |
++----------+---------------+-------------+------------+
+```
+
 **Notes:**
-- CSV and JSON files use hub-and-spoke structured extraction
-- Text files use pattern matching (and optionally GliNER)
-- CGC auto-detects the file format
+- CGC auto-detects whether a file is structured or unstructured
+- Structured files (CSV, JSON, XLS, XLSX) use hub-and-spoke extraction that converts each row into triplets
+- Unstructured files use pattern matching and optionally GliNER ML models
 
 ---
 
 ### cgc detect-domain
 
 Detect the industry domain of text for optimized extraction.
+
+**Requires:** Active trial or Pro license.
 
 **Format:**
 ```
@@ -549,26 +627,125 @@ Available Industry Packs (11):
 
 ---
 
+### cgc activate
+
+Activate a CGC Pro license key.
+
+**Format:**
+```
+cgc activate <license-key>
+```
+
+**Arguments:**
+- `license-key` - The UUID license key you received after purchase
+
+**Example:**
+```
+cgc activate a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Output (success):**
+```
+License activated successfully!
+Tier: Pro
+
+Graph extraction is now available.
+```
+
+**Output (invalid key):**
+```
+Invalid license key. Please check your key and try again.
+```
+
+**Notes:**
+- License keys are validated against our secure server
+- Once activated, the key is encrypted and stored locally on your machine
+- Your key works on one machine at a time -- use `cgc deactivate` to transfer
+
+---
+
+### cgc license
+
+Show current license status and tier.
+
+**Format:**
+```
+cgc license
+```
+
+**Output (Trial):**
+```
+CGC License Status
+
+  Tier: Trial
+  Days remaining: 11
+  Expires: 2026-02-13
+```
+
+**Output (Pro):**
+```
+CGC License Status
+
+  Tier: Pro
+  Last validated: 2026-02-02 10:48 UTC
+  Key: a1b2c3d4...7890
+```
+
+**Output (Free):**
+```
+CGC License Status
+
+  Tier: Free
+
+  Graph extraction requires CGC Pro.
+  Run 'cgc activate <license-key>' to upgrade.
+  Visit https://cgc.dev to purchase a license.
+```
+
+---
+
+### cgc deactivate
+
+Remove the stored license and revert to the free tier.
+
+**Format:**
+```
+cgc deactivate
+```
+
+**Output:**
+```
+License removed. Reverted to free tier.
+```
+
+**Notes:**
+- Use this before transferring your license to another machine
+- After deactivation, context extension features keep working
+- Graph extraction will be blocked until you reactivate
+
+---
+
 ### cgc health
 
 Check if a data source is accessible.
 
 **Format:**
 ```
-cgc health <source_name>
+cgc health <source_type> <connection>
 ```
 
 **Arguments:**
-- `source_name` - The name of your data source
+- `source_type` - The type of source
+- `connection` - Connection string or path
 
 **Example:**
 ```
-cgc health mydb
+cgc health postgres "postgresql://admin:secret@localhost:5432/mydb"
 ```
 
 **Output (Success):**
 ```
-OK Source 'mydb' is healthy
+OK Source is healthy
   Type: postgres
   Status: Connected
   Response time: 12ms
@@ -576,7 +753,7 @@ OK Source 'mydb' is healthy
 
 **Output (Failure):**
 ```
-X Source 'mydb' is not accessible
+X Source is not accessible
   Error: Connection refused
   Check: Is the database server running?
 ```
@@ -592,14 +769,9 @@ Display the current version of CGC.
 cgc version
 ```
 
-**Example:**
-```
-cgc version
-```
-
 **Output:**
 ```
-CGC (Context Graph Connector) v0.2.0
+CGC (Context Graph Connector) v0.3.0
 ```
 
 ---
@@ -647,7 +819,7 @@ cgc serve
 Always use quotes around paths that contain spaces:
 
 ```
-cgc sample "my database" users 5
+cgc sample filesystem "C:/My Documents" users 5
 ```
 
 ### Output Formats
@@ -655,8 +827,7 @@ cgc sample "my database" users 5
 Some commands support different output formats:
 
 ```
-cgc discover mydb --format json
-cgc sample mydb users --format csv
+cgc discover postgres "postgresql://..." --format json
 ```
 
 ### Quiet Mode
@@ -664,7 +835,7 @@ cgc sample mydb users --format csv
 Suppress extra output:
 
 ```
-cgc sample mydb users --quiet
+cgc sample postgres "postgresql://..." users --quiet
 ```
 
 ---
@@ -699,14 +870,23 @@ Can't access a file or folder.
 2. Check you have read permissions
 3. Try running as administrator (Windows) or with sudo (Mac/Linux)
 
-### "Source not found"
+### "Graph extraction requires CGC Pro"
 
-Trying to use a source that doesn't exist.
+You're trying to use extraction on the free tier.
 
 **Solutions:**
-1. List your sources via the API: `GET /sources`
-2. Add the source first via the API: `POST /sources`
-3. See [API Reference](API.md) for details
+1. If you just installed CGC, a trial should start automatically. Run `cgc license` to check
+2. Purchase a Pro license at [https://cgc.dev](https://cgc.dev)
+3. Activate with `cgc activate your-key-here`
+
+### "Invalid license key"
+
+The license key was rejected.
+
+**Solutions:**
+1. Double-check the key (copy-paste from your purchase email)
+2. Make sure you're using the full UUID (e.g., `a1b2c3d4-e5f6-7890-abcd-ef1234567890`)
+3. Contact support if the issue persists
 
 ---
 
@@ -714,4 +894,4 @@ Trying to use a source that doesn't exist.
 
 - [API Reference](API.md) - Use CGC with n8n, Make.com, or any HTTP client
 - [MCP Reference](MCP.md) - Connect CGC to Claude Desktop
-- [Technical Overview](TECHNICAL.md) - Learn how CGC works
+- [Security Guide](SECURITY.md) - Securing your CGC installation

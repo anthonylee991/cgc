@@ -41,20 +41,20 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
-            TAG="v0.2.0"
+            TAG="v0.3.0"
           fi
           gh release create "$TAG" \
             --title "CGC $TAG" \
             --notes "Context Graph Connector release.
 
-          **What's new in v0.2.0:**
-          - 50+ regex patterns for high-precision entity extraction
-          - GliNER + GliREL ML extraction pipeline (optional)
-          - E5 embedding domain routing with 11 industry packs
-          - Structured data extraction (hub-and-spoke model)
-          - Semantic type constraints and garbage filtering
-          - New CLI commands: extract-file, detect-domain, list-packs
-          - New API endpoints: /extract/structured, /detect/domain, /packs
+          **What's new in v0.3.0:**
+          - Cloud-powered graph extraction (Pro) - no ML setup needed
+          - License management: 14-day free trial, Pro tier with encrypted key storage
+          - New CLI commands: activate, license, deactivate
+          - File extraction supports XLS/XLSX (Excel) in addition to CSV/JSON
+          - New API endpoints: /extract/file (upload), /extract/chunked (chunk-then-extract)
+          - Free tier: full context extension (discover, sample, chunk, search, SQL)
+          - Pro tier: cloud extraction via secure relay
 
           **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
           **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
@@ -63,7 +63,7 @@ jobs:
           Each zip contains the CLI, MCP server, and documentation.
 
           > macOS unsigned build: run \`xattr -cr .\` to bypass Gatekeeper on first use.
-          > ML extraction (GliNER/GliREL/E5) requires separate Python install with \`pip install cgc[extraction]\`. Pattern-only extraction works out of the box." \
+          > Graph extraction works out of the box via cloud relay (Pro). For local extraction, install ML dependencies: \`pip install cgc[extraction]\`." \
             --draft
 
   build:
@@ -138,6 +138,10 @@ jobs:
             --hidden-import cgc.discovery.glirel \
             --hidden-import cgc.discovery.unified \
             --hidden-import cgc.discovery.router \
+            --hidden-import cgc.licensing \
+            --hidden-import cgc.licensing.store \
+            --hidden-import cgc.licensing.tier \
+            --hidden-import cgc.licensing.validator \
             cgc/cli/main.py
 
           # Build CGC MCP server
@@ -256,6 +260,6 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           if [ -z "$TAG" ] || [ "$TAG" = "" ]; then
-            TAG="v0.2.0"
+            TAG="v0.3.0"
           fi
           gh release upload "$TAG" "${{ matrix.dist_name }}.zip" --clobber
