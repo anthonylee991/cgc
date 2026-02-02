@@ -480,17 +480,34 @@ def extract(
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for NER"),
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+    local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
 ):
     """Extract triplets (relationships) from text.
+
+    Requires CGC Pro or an active trial. Use --local to run extraction
+    locally instead of via the cloud relay.
 
     Examples:
         cgc extract "Apple was founded by Steve Jobs in California"
         cgc extract "The user John placed order #123" --no-gliner
         cgc extract "Elon Musk founded SpaceX" --domain tech_startup
+        cgc extract "some text" --local
     """
-    from cgc.discovery.extractor import extract_triplets
+    from cgc.licensing import LicenseStore, LicenseError, require_extraction
 
-    triplets = extract_triplets(text, use_gliner=gliner, domain=domain)
+    store = LicenseStore()
+    try:
+        require_extraction(store)
+    except LicenseError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    if local:
+        from cgc.discovery.extractor import extract_triplets
+        triplets = extract_triplets(text, use_gliner=gliner, domain=domain)
+    else:
+        connector = Connector()
+        triplets = connector.extract_remote(text=text, use_gliner=gliner, domain=domain, store=store)
 
     if not triplets:
         console.print("[yellow]No triplets found[/yellow]")
@@ -520,44 +537,51 @@ def extract(
 
 @app.command(name="extract-file")
 def extract_file(
-    path: str = typer.Argument(..., help="Path to file (text, CSV, or JSON)"),
+    path: str = typer.Argument(..., help="Path to file (CSV, JSON, XLS, XLSX, or text)"),
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack"),
+    gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for unstructured extraction"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+    local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
 ):
-    """Extract triplets from a file (text, CSV, or JSON).
+    """Extract triplets from a file.
 
-    For CSV/JSON files, uses structured hub-and-spoke extraction.
-    For text files, uses pattern + ML extraction.
+    Requires CGC Pro or an active trial. For structured files (CSV, JSON,
+    XLS, XLSX), uses hub-and-spoke extraction. For unstructured files
+    (text, PDF, etc.), uses pattern + ML extraction.
 
     Examples:
         cgc extract-file ./report.txt
         cgc extract-file ./data.json
         cgc extract-file ./sales.csv --domain ecommerce_retail
+        cgc extract-file ./inventory.xlsx
+        cgc extract-file ./data.csv --local
     """
-    file_path = Path(path)
-    if not file_path.exists():
-        console.print(f"[red]File not found: {path}[/red]")
+    from cgc.licensing import LicenseStore, LicenseError, require_extraction
+
+    store = LicenseStore()
+    try:
+        require_extraction(store)
+    except LicenseError as e:
+        console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
 
-    content = file_path.read_text(encoding="utf-8", errors="replace")
+    connector = Connector()
 
-    # Detect structured data
-    if file_path.suffix.lower() in (".json",):
+    if local:
         try:
-            data = json.loads(content)
-            if isinstance(data, list) and data and isinstance(data[0], dict):
-                from cgc.discovery.structured import StructuredExtractor
-                extractor = StructuredExtractor()
-                triplets = extractor.extract_triplets(data)
-                _display_triplets(triplets, output, f"Structured Triplets ({file_path.name})")
-                return
-        except json.JSONDecodeError:
-            pass
+            triplets, file_type = connector.extract_file(path, domain=domain, use_gliner=gliner)
+        except FileNotFoundError:
+            console.print(f"[red]File not found: {path}[/red]")
+            raise typer.Exit(1)
+    else:
+        try:
+            triplets, file_type = connector.extract_file_remote(path, domain=domain, use_gliner=gliner, store=store)
+        except FileNotFoundError:
+            console.print(f"[red]File not found: {path}[/red]")
+            raise typer.Exit(1)
 
-    # Text extraction
-    from cgc.discovery.extractor import extract_triplets
-    triplets = extract_triplets(content, use_gliner=True, domain=domain)
-    _display_triplets(triplets, output, f"Extracted Triplets ({file_path.name})")
+    label = "Structured" if file_type == "structured" else "Extracted"
+    _display_triplets(triplets, output, f"{label} Triplets ({Path(path).name})")
 
 
 @app.command(name="detect-domain")
@@ -639,6 +663,87 @@ def _display_triplets(triplets: list, output: Optional[str], title: str):
         console.print(table)
 
 
+# =============================================================================
+# License Commands
+# =============================================================================
+
+@app.command(name="activate")
+def activate_license(
+    key: str = typer.Argument(..., help="License key (UUID from purchase)"),
+):
+    """Activate a CGC Pro license.
+
+    Enter the license key from your purchase to unlock graph extraction.
+
+    Examples:
+        cgc activate 27cbe0cb-b43d-43a8-a56d-1540c9330430
+    """
+    from cgc.licensing import LicenseStore, LicenseError, activate
+
+    store = LicenseStore()
+    try:
+        activate(key, store)
+        console.print("[bold green]License activated successfully![/bold green]")
+        console.print("Tier: [bold]Pro[/bold]")
+        console.print("\nGraph extraction is now available.")
+    except LicenseError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command(name="license")
+def license_info():
+    """Show current license status and tier.
+
+    Examples:
+        cgc license
+    """
+    from datetime import datetime, timedelta, timezone
+    from cgc.licensing import LicenseStore, get_tier, Tier, TRIAL_DURATION_DAYS
+
+    store = LicenseStore()
+    tier = get_tier(store)
+    license = store.load()
+
+    console.print(f"\n[bold]CGC License Status[/bold]")
+    console.print()
+
+    if tier == Tier.PRO:
+        console.print(f"  Tier: [bold green]Pro[/bold green]")
+        if license and license.last_validated:
+            console.print(f"  Last validated: {license.last_validated.strftime('%Y-%m-%d %H:%M UTC')}")
+            console.print(f"  Key: {license.license_key[:8]}...{license.license_key[-4:]}")
+    elif tier == Tier.TRIAL:
+        console.print(f"  Tier: [bold yellow]Trial[/bold yellow]")
+        if license and license.trial_start:
+            expires = license.trial_start + timedelta(days=TRIAL_DURATION_DAYS)
+            remaining = expires - datetime.now(timezone.utc)
+            days_left = max(0, remaining.days)
+            console.print(f"  Days remaining: {days_left}")
+            console.print(f"  Expires: {expires.strftime('%Y-%m-%d')}")
+    else:
+        console.print(f"  Tier: [dim]Free[/dim]")
+        console.print()
+        console.print("  Graph extraction is not available on the free tier.")
+        console.print("  Run [bold]cgc activate <key>[/bold] to upgrade to Pro.")
+
+    console.print()
+
+
+@app.command(name="deactivate")
+def deactivate_license():
+    """Remove the stored license and revert to free tier.
+
+    Examples:
+        cgc deactivate
+    """
+    from cgc.licensing import LicenseStore, deactivate
+
+    store = LicenseStore()
+    deactivate(store)
+    console.print("[yellow]License removed. Reverted to free tier.[/yellow]")
+
+
 @app.command()
 def health(
     source_type: str = typer.Argument(..., help="Source type"),
@@ -711,6 +816,9 @@ def version():
     console.print("  cgc detect-domain  Detect industry domain of text")
     console.print("  cgc list-packs     List available industry packs")
     console.print("  cgc health         Check data source health")
+    console.print("  cgc activate       Activate a Pro license")
+    console.print("  cgc license        Show license status")
+    console.print("  cgc deactivate     Remove stored license")
 
 
 def main():

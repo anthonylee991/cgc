@@ -397,6 +397,195 @@ class Connector:
         extractor = StructuredExtractor()
         return extractor.extract_triplets(data)
 
+    def extract_file(
+        self,
+        path: str,
+        domain: str | None = None,
+        use_gliner: bool = True,
+    ) -> tuple[list[Triplet], str]:
+        """Extract triplets from a file, auto-detecting structured vs unstructured.
+
+        Uses the file parser registry to parse the file, then routes to
+        structured extraction (hub-and-spoke) if rows are available, or
+        unstructured extraction (patterns + GliNER) otherwise.
+
+        Args:
+            path: Path to the file
+            domain: Force a specific industry pack (for unstructured only)
+            use_gliner: Whether to use GliNER for unstructured extraction
+
+        Returns:
+            Tuple of (triplets, file_type) where file_type is "structured" or "unstructured"
+        """
+        from pathlib import Path as _Path
+        from cgc.adapters.parsers import parse_file
+
+        file_path = _Path(path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        content = file_path.read_bytes()
+        parsed = parse_file(content, file_path.name)
+
+        if parsed.rows:
+            triplets = self.extract_triplets_structured(parsed.rows)
+            return triplets, "structured"
+        else:
+            triplets = self.extract_triplets(parsed.text, use_gliner=use_gliner, domain=domain)
+            return triplets, "unstructured"
+
+    async def extract_chunked(
+        self,
+        source_id: str,
+        entity: str,
+        strategy: ChunkStrategy,
+        use_gliner: bool = True,
+        domain: str | None = None,
+    ) -> dict[str, Any]:
+        """Chunk a file then extract triplets from each chunk.
+
+        Designed for unstructured data (PDFs, docs, large text files) where
+        chunking is needed before extraction.
+
+        Args:
+            source_id: Source containing the file
+            entity: File entity name
+            strategy: Chunking strategy to use
+            use_gliner: Whether to use GliNER for extraction
+            domain: Force a specific industry pack
+
+        Returns:
+            Dict with per-chunk triplets and aggregate counts
+        """
+        chunks = await self.chunk(source_id, entity, strategy)
+
+        results = []
+        total_triplets = 0
+
+        for chunk in chunks:
+            text = chunk.to_text()
+            triplets = self.extract_triplets(text, use_gliner=use_gliner, domain=domain)
+            results.append({
+                "chunk_index": chunk.index,
+                "chunk_id": chunk.id,
+                "triplets": triplets,
+                "triplet_count": len(triplets),
+            })
+            total_triplets += len(triplets)
+
+        return {
+            "chunks": results,
+            "total_chunks": len(chunks),
+            "total_triplets": total_triplets,
+        }
+
+    # === Remote Extraction (via cloud relay) ===
+
+    def extract_remote(
+        self,
+        text: str,
+        use_gliner: bool = True,
+        domain: str | None = None,
+        store: Any = None,
+    ) -> list[Triplet]:
+        """Extract triplets via the cloud relay API.
+
+        Args:
+            text: Input text
+            use_gliner: Whether to use GliNER
+            domain: Force a specific industry pack
+            store: LicenseStore instance for retrieving the license key
+
+        Returns:
+            List of extracted triplets
+        """
+        import httpx
+        from cgc.licensing.validator import RELAY_URL, get_license_key
+
+        license_key = get_license_key(store) if store else None
+        if not license_key:
+            raise RuntimeError("No license key found. Run 'cgc activate <key>' first.")
+
+        resp = httpx.post(
+            f"{RELAY_URL}/v1/extract/text",
+            headers={"X-License-Key": license_key},
+            json={"text": text, "use_gliner": use_gliner, "domain": domain},
+            timeout=120.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        return [
+            Triplet(
+                subject=t["subject"],
+                predicate=t["predicate"],
+                object=t["object"],
+                confidence=t.get("confidence", 0.0),
+                metadata=t.get("metadata"),
+            )
+            for t in data.get("triplets", [])
+        ]
+
+    def extract_file_remote(
+        self,
+        path: str,
+        domain: str | None = None,
+        use_gliner: bool = True,
+        store: Any = None,
+    ) -> tuple[list[Triplet], str]:
+        """Extract triplets from a file via the cloud relay API.
+
+        Args:
+            path: Path to the file
+            domain: Force a specific industry pack
+            use_gliner: Whether to use GliNER for unstructured extraction
+            store: LicenseStore instance for retrieving the license key
+
+        Returns:
+            Tuple of (triplets, file_type)
+        """
+        import httpx
+        from pathlib import Path as _Path
+        from cgc.licensing.validator import RELAY_URL, get_license_key
+
+        file_path = _Path(path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        license_key = get_license_key(store) if store else None
+        if not license_key:
+            raise RuntimeError("No license key found. Run 'cgc activate <key>' first.")
+
+        with open(file_path, "rb") as f:
+            files = {"file": (file_path.name, f)}
+            data = {}
+            if domain:
+                data["domain"] = domain
+            data["use_gliner"] = str(use_gliner).lower()
+
+            resp = httpx.post(
+                f"{RELAY_URL}/v1/extract/file",
+                headers={"X-License-Key": license_key},
+                files=files,
+                data=data,
+                timeout=120.0,
+            )
+        resp.raise_for_status()
+        result = resp.json()
+
+        triplets = [
+            Triplet(
+                subject=t["subject"],
+                predicate=t["predicate"],
+                object=t["object"],
+                confidence=t.get("confidence", 0.0),
+                metadata=t.get("metadata"),
+            )
+            for t in result.get("triplets", [])
+        ]
+
+        return triplets, result.get("file_type", "unstructured")
+
     def detect_domain(self, text: str) -> dict[str, Any]:
         """Detect the industry domain of text for optimized extraction.
 

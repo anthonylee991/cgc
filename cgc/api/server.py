@@ -16,7 +16,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -84,6 +84,15 @@ class TripletRequest(BaseModel):
 class StructuredExtractionRequest(BaseModel):
     """Structured data extraction request."""
     data: list[dict[str, Any]]
+
+
+class ChunkedExtractionRequest(BaseModel):
+    """Chunk-then-extract workflow request."""
+    source_id: str
+    entity: str
+    strategy: str = "tokens:4000"
+    use_gliner: bool = True
+    domain: str | None = None
 
 
 class DomainDetectionRequest(BaseModel):
@@ -652,6 +661,109 @@ async def extract_structured(request: StructuredExtractionRequest):
             "count": len(triplets),
             "rows_processed": len(request.data),
         }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/extract/file")
+async def extract_file(
+    file: UploadFile = File(...),
+    domain: str | None = Form(default=None),
+    use_gliner: bool = Form(default=True),
+):
+    """Extract triplets from an uploaded file.
+
+    Supports structured formats (CSV, JSON, XLS, XLSX) via hub-and-spoke extraction,
+    and unstructured formats (text, PDF, Markdown, etc.) via pattern + ML extraction.
+    """
+    from cgc.adapters.parsers import parse_file
+
+    try:
+        content = await file.read()
+        parsed = parse_file(content, file.filename or "unknown")
+
+        connector = get_connector()
+
+        if parsed.rows:
+            triplets = connector.extract_triplets_structured(parsed.rows)
+            file_type = "structured"
+        else:
+            triplets = connector.extract_triplets(parsed.text, use_gliner=use_gliner, domain=domain)
+            file_type = "unstructured"
+
+        return {
+            "triplets": [
+                {
+                    "subject": t.subject,
+                    "predicate": t.predicate,
+                    "object": t.object,
+                    "confidence": t.confidence,
+                    "source_text": t.source_text if hasattr(t, "source_text") else None,
+                    "subject_label": t.metadata.get("subject_label") if t.metadata else None,
+                    "object_label": t.metadata.get("object_label") if t.metadata else None,
+                }
+                for t in triplets
+            ],
+            "count": len(triplets),
+            "file_type": file_type,
+            "filename": file.filename,
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.post("/extract/chunked")
+async def extract_chunked(request: ChunkedExtractionRequest):
+    """Chunk a file then extract triplets from each chunk.
+
+    Designed for unstructured data (PDFs, docs, large text files) where
+    chunking before extraction improves results. Requires a connected
+    filesystem source.
+    """
+    connector = get_connector()
+
+    if not connector.has_source(request.source_id):
+        raise HTTPException(404, f"Source not found: {request.source_id}")
+
+    # Parse strategy
+    if request.strategy.startswith("rows:"):
+        n = int(request.strategy.split(":")[1])
+        strategy = FixedRowsStrategy(rows_per_chunk=n)
+    elif request.strategy.startswith("tokens:"):
+        n = int(request.strategy.split(":")[1])
+        strategy = FixedTokensStrategy(tokens_per_chunk=n)
+    elif request.strategy == "sections":
+        strategy = BySectionsStrategy()
+    else:
+        raise HTTPException(400, f"Unknown strategy: {request.strategy}. Use 'rows:N', 'tokens:N', or 'sections'")
+
+    # Normalize entity
+    entity = _normalize_entity(request.source_id, request.entity)
+
+    try:
+        result = await connector.extract_chunked(
+            request.source_id, entity, strategy,
+            use_gliner=request.use_gliner, domain=request.domain,
+        )
+
+        # Serialize triplets within each chunk
+        for chunk_result in result["chunks"]:
+            chunk_result["triplets"] = [
+                {
+                    "subject": t.subject,
+                    "predicate": t.predicate,
+                    "object": t.object,
+                    "confidence": t.confidence,
+                    "source_text": t.source_text if hasattr(t, "source_text") else None,
+                }
+                for t in chunk_result["triplets"]
+            ]
+
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, str(e))
 
