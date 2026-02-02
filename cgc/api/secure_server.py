@@ -494,6 +494,8 @@ async def discover_schema(
     try:
         schema = await connector.discover(source_id, refresh=refresh)
         return schema.to_dict()
+    except asyncio.TimeoutError:
+        raise HTTPException(504, f"Discovery timed out for source '{source_id}'. The directory may contain too many files.")
     except Exception as e:
         error_msg = mask_credentials(str(e))
         raise HTTPException(500, error_msg)
@@ -561,7 +563,8 @@ async def execute_search(request: SearchRequest, api_key: APIKey = Security(veri
             if not request.entity:
                 from cgc.core.schema import EntityType
 
-                schema = await source.discover_schema()
+                # Get all files via connector.discover (uses timeout + excludes)
+                schema = await connector.discover(request.source_id)
                 all_results = []
                 total_time = 0
 

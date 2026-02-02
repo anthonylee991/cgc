@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 
@@ -191,16 +192,71 @@ class Schema:
         """Get list of entity names."""
         return [e.name for e in self.entities]
 
+    # Above this threshold, to_compact() uses directory-tree summarization
+    # instead of listing every entity individually
+    COMPACT_ENTITY_THRESHOLD: int = 200
+
     def to_compact(self) -> str:
-        """Generate compact summary for LLM context."""
+        """Generate compact summary for LLM context.
+
+        For schemas with many entities (>200), produces a directory-tree
+        summary with file counts per directory instead of listing every
+        file individually. This prevents output token explosion.
+        """
         lines = [f"Source: {self.source_id} ({self.source_type.value})"]
 
-        for entity in self.entities:
-            fields_str = ", ".join(f.name for f in entity.fields[:5])
-            if len(entity.fields) > 5:
-                fields_str += f", ... (+{len(entity.fields) - 5} more)"
-            rows = f" ({entity.row_count:,} rows)" if entity.row_count else ""
-            lines.append(f"  {entity.name}{rows}: {fields_str}")
+        if len(self.entities) <= self.COMPACT_ENTITY_THRESHOLD:
+            # Small schema: list every entity
+            for entity in self.entities:
+                fields_str = ", ".join(f.name for f in entity.fields[:5])
+                if len(entity.fields) > 5:
+                    fields_str += f", ... (+{len(entity.fields) - 5} more)"
+                rows = f" ({entity.row_count:,} rows)" if entity.row_count else ""
+                lines.append(f"  {entity.name}{rows}: {fields_str}")
+        else:
+            # Large schema: summarize by directory tree
+            lines.append(f"  ({len(self.entities):,} entities - showing directory summary)")
+            lines.append("")
+            dir_counts: dict[str, dict[str, int]] = {}
+            extensions: dict[str, int] = {}
+
+            for entity in self.entities:
+                if entity.entity_type == EntityType.DIRECTORY:
+                    continue
+                parts = entity.name.replace("\\", "/").split("/")
+                top_dir = parts[0] if len(parts) > 1 else "."
+                ext = Path(entity.name).suffix.lower() or "(no ext)"
+
+                if top_dir not in dir_counts:
+                    dir_counts[top_dir] = {"files": 0, "dirs": 0}
+                dir_counts[top_dir]["files"] += 1
+                extensions[ext] = extensions.get(ext, 0) + 1
+
+            for entity in self.entities:
+                if entity.entity_type == EntityType.DIRECTORY:
+                    parts = entity.name.replace("\\", "/").split("/")
+                    top_dir = parts[0]
+                    if top_dir in dir_counts:
+                        dir_counts[top_dir]["dirs"] += 1
+
+            # Sort by file count descending
+            for dir_name, counts in sorted(
+                dir_counts.items(), key=lambda x: x[1]["files"], reverse=True
+            )[:30]:
+                lines.append(
+                    f"  {dir_name}/ ({counts['files']} files, {counts['dirs']} subdirs)"
+                )
+
+            if len(dir_counts) > 30:
+                lines.append(f"  ... and {len(dir_counts) - 30} more directories")
+
+            # Show extension breakdown
+            lines.append("")
+            lines.append("  File types:")
+            for ext, count in sorted(extensions.items(), key=lambda x: x[1], reverse=True)[:15]:
+                lines.append(f"    {ext}: {count}")
+            if len(extensions) > 15:
+                lines.append(f"    ... and {len(extensions) - 15} more types")
 
         if self.stats:
             lines.append(f"\nTotal: {self.stats.total_entities} entities, {self.stats.total_fields} fields")

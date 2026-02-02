@@ -130,14 +130,26 @@ class Connector:
 
         Returns:
             Discovered schema
+
+        Raises:
+            asyncio.TimeoutError: If discovery exceeds timeout_seconds
         """
         # Check cache
         if not refresh and source_id in self._schemas:
             return self._schemas[source_id]
 
-        # Discover
+        options = options or DiscoveryOptions()
+
+        # Discover with timeout enforcement
         source = self.get_source(source_id)
-        schema = await source.discover_schema(options)
+        timeout = options.timeout_seconds
+        if timeout:
+            schema = await asyncio.wait_for(
+                source.discover_schema(options),
+                timeout=float(timeout),
+            )
+        else:
+            schema = await source.discover_schema(options)
 
         # Cache
         self._schemas[source_id] = schema

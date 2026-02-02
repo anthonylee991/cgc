@@ -16,7 +16,7 @@ from cgc.core.graph import Relationship, RelationshipGraph, RelationshipType
 from cgc.core.triplet import Triplet
 from cgc.session import Session, get_session, save_session, load_session, new_session
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     # Main interface

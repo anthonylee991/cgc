@@ -284,6 +284,8 @@ async def discover_schema(source_id: str, refresh: bool = False):
     try:
         schema = await connector.discover(source_id, refresh=refresh)
         return schema.to_dict()
+    except asyncio.TimeoutError:
+        raise HTTPException(504, f"Discovery timed out for source '{source_id}'. The directory may contain too many files.")
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -304,6 +306,8 @@ async def get_entity_schema(source_id: str, entity: str):
         return entity_obj.to_dict()
     except HTTPException:
         raise
+    except asyncio.TimeoutError:
+        raise HTTPException(504, f"Discovery timed out for source '{source_id}'.")
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -316,6 +320,8 @@ async def discover_all_schemas(refresh: bool = False):
     try:
         schemas = await connector.discover_all(refresh=refresh)
         return {sid: s.to_dict() for sid, s in schemas.items()}
+    except asyncio.TimeoutError:
+        raise HTTPException(504, "Discovery timed out for one or more sources.")
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -362,8 +368,8 @@ async def execute_search(request: SearchRequest):
             if not request.entity:
                 from cgc.core.schema import EntityType
 
-                # Get all files and search each one
-                schema = await source.discover_schema()
+                # Get all files via connector.discover (uses timeout + excludes)
+                schema = await connector.discover(request.source_id)
                 all_results = []
                 total_time = 0
 

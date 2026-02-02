@@ -444,17 +444,27 @@ def create_server() -> Server:
                         content=[TextContent(type="text", text=f"Source not found: {source_id}")]
                     )
 
-                schema = await connector.discover(source_id, refresh=refresh)
+                try:
+                    schema = await connector.discover(source_id, refresh=refresh)
+                except asyncio.TimeoutError:
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Discovery timed out for source '{source_id}'. The directory may contain too many files. Try adding exclude patterns or increasing the timeout.")]
+                    )
                 return CallToolResult(
                     content=[TextContent(type="text", text=schema.to_compact())]
                 )
 
             elif name == "cgc_discover_all":
                 refresh = arguments.get("refresh", False)
-                schemas = await connector.discover_all(refresh=refresh)
-                summaries = [s.to_compact() for s in schemas.values()]
+                results = []
+                for sid in connector.sources:
+                    try:
+                        schema = await connector.discover(sid, refresh=refresh)
+                        results.append(schema.to_compact())
+                    except asyncio.TimeoutError:
+                        results.append(f"Source: {sid}\n  (discovery timed out - directory may contain too many files)")
                 return CallToolResult(
-                    content=[TextContent(type="text", text="\n\n".join(summaries))]
+                    content=[TextContent(type="text", text="\n\n".join(results))]
                 )
 
             elif name == "cgc_sample":

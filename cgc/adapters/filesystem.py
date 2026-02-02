@@ -59,12 +59,32 @@ class FilesystemAdapter(DataSource):
     - Code: .py, .js, .ts, etc.
     """
 
+    # Directories that are always skipped during discovery
+    DEFAULT_EXCLUDE_DIRS: set[str] = {
+        ".git", "node_modules", "__pycache__", "venv", ".venv", "env",
+        ".next", "dist", "build", ".tox", ".mypy_cache", ".pytest_cache",
+        ".eggs", ".cache", ".sass-cache", "bower_components",
+        ".gradle", ".idea", ".vs", ".vscode",
+        "site-packages", "vendor",
+    }
+
+    # File patterns that are always skipped during discovery
+    DEFAULT_EXCLUDE_EXTENSIONS: set[str] = {
+        ".pyc", ".pyo", ".so", ".dll", ".dylib", ".o", ".obj",
+        ".exe", ".bin", ".class", ".jar",
+    }
+
+    # Max entities to discover before stopping (prevents output explosion)
+    MAX_ENTITIES: int = 5000
+
     def __init__(
         self,
         source_id: str,
         root_path: str,
         glob_pattern: str = "**/*",
         exclude_patterns: list[str] | None = None,
+        exclude_dirs: set[str] | None = None,
+        max_entities: int | None = None,
     ):
         """Initialize filesystem adapter.
 
@@ -72,12 +92,21 @@ class FilesystemAdapter(DataSource):
             source_id: Unique identifier for this source
             root_path: Root directory path
             glob_pattern: Pattern for discovering files (default: all files)
-            exclude_patterns: Patterns to exclude (e.g., ["*.pyc", "__pycache__"])
+            exclude_patterns: Additional glob patterns to exclude
+            exclude_dirs: Directory names to skip entirely (merged with defaults).
+                         Pass an empty set to disable default exclusions.
+            max_entities: Maximum entities to discover (default: 5000)
         """
         self._source_id = source_id
         self._root = Path(root_path).resolve()
         self._glob_pattern = glob_pattern
         self._exclude_patterns = exclude_patterns or []
+        self._max_entities = max_entities or self.MAX_ENTITIES
+
+        if exclude_dirs is not None:
+            self._exclude_dirs = exclude_dirs
+        else:
+            self._exclude_dirs = self.DEFAULT_EXCLUDE_DIRS.copy()
 
         if not self._root.exists():
             raise ValueError(f"Path does not exist: {self._root}")
@@ -91,12 +120,74 @@ class FilesystemAdapter(DataSource):
         return SourceType.FILESYSTEM
 
     def _should_exclude(self, path: Path) -> bool:
-        """Check if path should be excluded."""
+        """Check if path should be excluded via user-supplied patterns."""
         rel_path = str(path.relative_to(self._root))
         for pattern in self._exclude_patterns:
             if Path(rel_path).match(pattern):
                 return True
         return False
+
+    def _should_skip_dir(self, dir_path: Path) -> bool:
+        """Check if a directory should be skipped entirely during walk.
+
+        This prevents walking into node_modules, .git, venv, etc.
+        """
+        return dir_path.name in self._exclude_dirs
+
+    def _should_skip_file(self, file_path: Path) -> bool:
+        """Check if a file should be skipped based on extension."""
+        return file_path.suffix.lower() in self.DEFAULT_EXCLUDE_EXTENSIONS
+
+    def _walk_filtered(self) -> list[Path]:
+        """Walk directory tree, skipping excluded directories entirely.
+
+        Uses os.walk instead of glob to avoid descending into
+        excluded directories (glob walks everything then filters).
+        """
+        import os
+
+        results = []
+        entity_count = 0
+
+        for dirpath, dirnames, filenames in os.walk(self._root):
+            current = Path(dirpath)
+
+            # Prune excluded directories IN PLACE so os.walk skips them
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in self._exclude_dirs
+            ]
+
+            # Add directory entity
+            if current != self._root:
+                if not self._should_exclude(current):
+                    results.append(current)
+                    entity_count += 1
+
+            # Add file entities
+            for fname in filenames:
+                file_path = current / fname
+                if self._should_skip_file(file_path):
+                    continue
+                if self._should_exclude(file_path):
+                    continue
+                results.append(file_path)
+                entity_count += 1
+
+                if entity_count >= self._max_entities:
+                    return results
+
+        return results
+
+    async def _walk_filtered_async(self) -> list[Path]:
+        """Async wrapper for _walk_filtered that runs in a thread executor.
+
+        This allows asyncio.wait_for() to actually interrupt the walk
+        when it exceeds the timeout, since os.walk is synchronous and
+        would otherwise block the event loop.
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._walk_filtered)
 
     def _get_entity_type(self, path: Path) -> EntityType:
         """Determine entity type from path."""
@@ -108,17 +199,30 @@ class FilesystemAdapter(DataSource):
         self,
         options: DiscoveryOptions | None = None,
     ) -> Schema:
-        """Discover schema for filesystem."""
+        """Discover schema for filesystem.
+
+        Uses os.walk with directory pruning instead of glob to avoid
+        descending into excluded directories (node_modules, .git, venv, etc.).
+
+        For filesystem sources, include_samples defaults to False to prevent
+        reading every file during discovery. Pass include_samples=True
+        explicitly if you want file parsing during discovery.
+        """
         options = options or DiscoveryOptions()
+
+        # Filesystem-specific override: default samples to False
+        # (reading every file during discovery is too expensive)
+        fs_include_samples = options.include_samples if options.entities else False
+
         entities = []
         relationships = []
         total_size = 0
+        capped = False
 
-        # Walk directory tree
-        for item in self._root.glob(self._glob_pattern):
-            if self._should_exclude(item):
-                continue
+        # Walk directory tree with pruning (async so timeout can interrupt)
+        items = await self._walk_filtered_async()
 
+        for item in items:
             rel_path = str(item.relative_to(self._root))
 
             # Filter by specific entities if requested
@@ -135,10 +239,25 @@ class FilesystemAdapter(DataSource):
                     metadata={"path": str(item)},
                 )
             else:
-                entity = await self._discover_file(item, rel_path, options)
-                total_size += item.stat().st_size
+                # Only parse files for samples if explicitly requested
+                # or if specific entities were targeted
+                discover_options = DiscoveryOptions(
+                    entities=options.entities,
+                    include_samples=fs_include_samples,
+                    sample_size=options.sample_size,
+                    include_cardinality=options.include_cardinality,
+                    timeout_seconds=options.timeout_seconds,
+                )
+                entity = await self._discover_file(item, rel_path, discover_options)
+                try:
+                    total_size += item.stat().st_size
+                except OSError:
+                    pass
 
             entities.append(entity)
+
+        if len(items) >= self._max_entities:
+            capped = True
 
         # Discover directory containment relationships
         relationships = self._discover_containment(entities)
@@ -150,12 +269,13 @@ class FilesystemAdapter(DataSource):
             estimated_size_bytes=total_size,
         )
 
+        cap_warning = f" (capped at {self._max_entities})" if capped else ""
         return Schema(
             source_id=self._source_id,
             source_type=self.source_type,
             entities=entities,
             relationships=relationships,
-            summary=f"Filesystem at {self._root} with {len(entities)} files/directories",
+            summary=f"Filesystem at {self._root} with {len(entities)} files/directories{cap_warning}",
             stats=stats,
         )
 
