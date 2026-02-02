@@ -47,7 +47,7 @@ CGC includes multiple layers of security:
 The secure server has all protections enabled by default:
 
 ```
-cgc-server-secure
+cgc serve --secure
 ```
 
 You'll see:
@@ -64,18 +64,18 @@ Since authentication is required, you need to create a key first. Temporarily di
 **Windows (Command Prompt):**
 ```
 set CGC_REQUIRE_AUTH=false
-cgc-server-secure
+cgc serve --secure
 ```
 
 **Windows (PowerShell):**
 ```
 $env:CGC_REQUIRE_AUTH = "false"
-cgc-server-secure
+cgc serve --secure
 ```
 
 **Mac/Linux:**
 ```
-CGC_REQUIRE_AUTH=false cgc-server-secure
+CGC_REQUIRE_AUTH=false cgc serve --secure
 ```
 
 ### Step 3: Create an Admin Key
@@ -106,7 +106,7 @@ This key is only shown once. Save it somewhere safe!
 Stop the server (Ctrl+C) and restart normally:
 
 ```
-cgc-server-secure
+cgc serve --secure
 ```
 
 ### Step 5: Test Your Key
@@ -326,7 +326,7 @@ To allow access from other machines:
 
 **Local Network:**
 ```
-CGC_BIND_HOST=0.0.0.0 cgc-server-secure
+CGC_BIND_HOST=0.0.0.0 cgc serve --secure
 ```
 
 **Caution:** This exposes CGC to your entire network.
@@ -339,7 +339,7 @@ For internet access, use ngrok:
 
 2. **Start CGC** with security enabled:
    ```
-   cgc-server-secure
+   cgc serve --secure
    ```
 
 3. **Start ngrok**:
@@ -380,20 +380,20 @@ To allow specific domains:
 
 ### For Local Development
 
-1. Use `cgc-server` (without security) for quick testing
-2. Use `cgc-server-secure` when testing security features
+1. Use `cgc serve` (without security) for quick testing
+2. Use `cgc serve --secure` when testing security features
 3. Create a dedicated development API key
 
 ### For Team/Office Use
 
-1. Always use `cgc-server-secure`
+1. Always use `cgc serve --secure`
 2. Create separate keys for each team member
 3. Use permission restrictions based on role
 4. Set key expiration (e.g., 30-90 days)
 
 ### For Internet Exposure
 
-1. **Always** use `cgc-server-secure`
+1. **Always** use `cgc serve --secure`
 2. Use strong, unique API keys
 3. Set up ngrok with authentication if possible
 4. Monitor access logs regularly

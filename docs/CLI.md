@@ -509,7 +509,7 @@ Entity labels: person, company, product, technology, framework, ...
 Relation labels: founded, leads, built with, integrates with, ...
 
 Top scores:
-  tech_startup:       0.848 ←
+  tech_startup:       0.848 <--
   finance_investment:  0.753
   hr_people:          0.751
 ```
@@ -568,7 +568,7 @@ cgc health mydb
 
 **Output (Success):**
 ```
-✓ Source 'mydb' is healthy
+OK Source 'mydb' is healthy
   Type: postgres
   Status: Connected
   Response time: 12ms
@@ -576,7 +576,7 @@ cgc health mydb
 
 **Output (Failure):**
 ```
-✗ Source 'mydb' is not accessible
+X Source 'mydb' is not accessible
   Error: Connection refused
   Check: Is the database server running?
 ```
@@ -599,7 +599,7 @@ cgc version
 
 **Output:**
 ```
-CGC (Context Graph Connector) v1.0.0
+CGC (Context Graph Connector) v0.2.0
 ```
 
 ---

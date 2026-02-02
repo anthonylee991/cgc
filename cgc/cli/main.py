@@ -493,7 +493,7 @@ def extract(
         cgc extract "Elon Musk founded SpaceX" --domain tech_startup
         cgc extract "some text" --local
     """
-    from cgc.licensing import LicenseStore, LicenseError, require_extraction
+    from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
 
     store = LicenseStore()
     try:
@@ -502,7 +502,10 @@ def extract(
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
 
-    if local:
+    # Use local extraction if --local flag or no license key (trial users)
+    use_local = local or not get_license_key(store)
+
+    if use_local:
         from cgc.discovery.extractor import extract_triplets
         triplets = extract_triplets(text, use_gliner=gliner, domain=domain)
     else:
@@ -556,7 +559,7 @@ def extract_file(
         cgc extract-file ./inventory.xlsx
         cgc extract-file ./data.csv --local
     """
-    from cgc.licensing import LicenseStore, LicenseError, require_extraction
+    from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
 
     store = LicenseStore()
     try:
@@ -566,8 +569,9 @@ def extract_file(
         raise typer.Exit(1)
 
     connector = Connector()
+    use_local = local or not get_license_key(store)
 
-    if local:
+    if use_local:
         try:
             triplets, file_type = connector.extract_file(path, domain=domain, use_gliner=gliner)
         except FileNotFoundError:

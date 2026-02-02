@@ -15,7 +15,7 @@ from cgc.licensing.tier import (
     Tier,
 )
 
-RELAY_URL = "https://cgc-relay-production.up.railway.app"
+RELAY_URL = "https://cgc-production.up.railway.app"
 
 
 class LicenseError(Exception):

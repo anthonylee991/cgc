@@ -125,12 +125,12 @@ The settings file is located at:
 
 **Windows:**
 ```
-C:\Users\YourName\.claude\mcp_settings.json
+C:\Users\YourName\.claude\settings.json
 ```
 
 **Mac/Linux:**
 ```
-~/.claude/mcp_settings.json
+~/.claude/settings.json
 ```
 
 ### Step 2: Edit the Settings
@@ -413,7 +413,7 @@ Size:
   Limit:      5,000,000 bytes
   Usage:      2.5%
 
-Status: ✓ Healthy
+Status: OK Healthy
 ```
 
 ### Session Safeguards
@@ -453,13 +453,13 @@ All sessions are automatically saved with gzip compression, typically reducing f
 ```
 Available Sessions:
 
-📦 20260124_103042 - 12.5KB - 2026-01-24T10:30:42
-📦 20260123_142215 - 8.2KB - 2026-01-23T14:22:15
-📦 20260122_091530 - 45.1KB - 2026-01-22T09:15:30
+[Z] 20260124_103042 - 12.5KB - 2026-01-24T10:30:42
+[Z] 20260123_142215 - 8.2KB - 2026-01-23T14:22:15
+[Z] 20260122_091530 - 45.1KB - 2026-01-22T09:15:30
 
 Archived Sessions:
 
-🗄️ 20260120_080000 - 1.2MB - 2026-01-20T08:00:00
+[A] 20260120_080000 - 1.2MB - 2026-01-20T08:00:00
 ```
 
 ---
@@ -475,7 +475,7 @@ Claude doesn't see the CGC tools.
 1. **Check the config file path**
    - Make sure you're editing the correct file
    - Windows Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json`
-   - Claude Code: `~/.claude/mcp_settings.json`
+   - Claude Code: `~/.claude/settings.json`
 
 2. **Check the executable path**
    - Use the full path to cgc_mcp.exe
