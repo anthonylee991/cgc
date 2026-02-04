@@ -36,7 +36,7 @@ from cgc.core.graph import (
     Relationship,
     RelationshipType,
 )
-from cgc.core.query import PatternQuery, Query, QueryResult
+from cgc.core.query import PatternQuery, Query, QueryResult, SearchQuery
 from cgc.core.schema import (
     DataType,
     Entity,
@@ -364,6 +364,16 @@ class FilesystemAdapter(DataSource):
 
         if isinstance(query, PatternQuery):
             return await self._pattern_search(query, start)
+        elif isinstance(query, SearchQuery):
+            # Convert SearchQuery to PatternQuery for filesystem search
+            pattern_query = PatternQuery(
+                entity=query.entity,
+                pattern=query.query,  # SearchQuery.query -> PatternQuery.pattern
+                field=query.field,
+                fuzzy_fallback=query.fuzzy_fallback,
+                similarity_threshold=query.similarity_threshold,
+            )
+            return await self._pattern_search(pattern_query, start)
         else:
             raise ValueError(f"Unsupported query type for filesystem: {type(query)}")
 

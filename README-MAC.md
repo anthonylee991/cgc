@@ -7,13 +7,10 @@
 
 ## What's Included
 
-```
-CGC_v0.1.0_bundle/
-└── macOS/
-    ├── cgc-mac-aarch64/    ← Apple Silicon (M1/M2/M3/M4)
-    └── cgc-mac-x86_64/     ← Intel Macs
+This folder contains:
 
-Each architecture folder contains:
+```
+cgc-mac-aarch64/  (or cgc-mac-x86_64/)
 ├── cgc               - CLI tool (connect, discover, query, search, chunk, graph)
 ├── cgc_mcp           - MCP server (for Claude/Cursor/Cline)
 ├── launch_cgc.sh     - API server launcher (starts server + opens browser)
@@ -28,9 +25,9 @@ Each architecture folder contains:
     └── THIRD_PARTY_NOTICES.md
 ```
 
-**Which folder do I use?**
-- **cgc-mac-aarch64** — Apple Silicon (M1, M2, M3, M4)
-- **cgc-mac-x86_64** — Intel Macs
+**Which download do I need?**
+- **cgc-mac-aarch64.zip** — Apple Silicon (M1, M2, M3, M4)
+- **cgc-mac-x86_64.zip** — Intel Macs
 
 Not sure? Run `uname -m` in Terminal. If it says `arm64`, use aarch64. If it says `x86_64`, use x86_64.
 

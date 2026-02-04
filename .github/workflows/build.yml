@@ -59,16 +59,14 @@ jobs:
             --title "CGC $TAG" \
             --notes "Context Graph Connector release.
 
-          **What's new in v0.3.1:**
-          - **Performance fix:** Filesystem discovery no longer hangs on large codebases
+          **What's new in v0.3.2:**
+          - **Fix:** cgc_search now works on filesystem sources (SearchQuery support added to FilesystemAdapter)
+          - Windows and Mac README documentation updated with correct paths for bundled distributions
+
+          **v0.3.1:**
+          - Performance fix: Filesystem discovery no longer hangs on large codebases
           - Default exclusion of node_modules, .git, venv, __pycache__, and 18 other junk directories
-          - Directory walk uses os.walk with in-place pruning instead of glob (skips excluded dirs entirely)
-          - Filesystem discovery no longer reads/parses every file (include_samples defaults to False)
-          - Timeout enforcement: DiscoveryOptions.timeout_seconds is now enforced via asyncio.wait_for
-          - Entity count cap (5,000) prevents output explosion on huge directories
-          - Smart to_compact() output: directory-tree summary for schemas with >200 entities
-          - API search endpoints now route through Connector.discover (timeout + excludes)
-          - Timeout errors return graceful messages (MCP) and 504 responses (API) instead of hanging
+          - Timeout enforcement and entity count cap (5,000) prevent hangs on huge directories
 
           **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
           **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
@@ -254,7 +252,7 @@ jobs:
           Copy-Item "dist\cgc_mcp.exe" "$DIST\"
 
           # Documentation
-          Copy-Item "README.md" "$DIST\README.md"
+          Copy-Item "README-WINDOWS.md" "$DIST\README.md"
           $docs = @("docs\CLI.md", "docs\API.md", "docs\MCP.md", "docs\TECHNICAL.md", "docs\SECURITY.md", "LICENSE", "THIRD_PARTY_NOTICES.md")
           foreach ($doc in $docs) {
             if (Test-Path $doc) { Copy-Item $doc "$DIST\documentation\" }

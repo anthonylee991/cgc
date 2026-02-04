@@ -102,7 +102,7 @@ class DataSource(ABC):
 
         The query type depends on what the source supports:
         - SQL sources: SqlQuery, GetQuery, SearchQuery
-        - Filesystems: PatternQuery
+        - Filesystems: PatternQuery, SearchQuery
         - Vector DBs: SemanticQuery
         """
         ...
