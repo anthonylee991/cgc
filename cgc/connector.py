@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 from cgc.adapters.base import DataSource, DiscoveryOptions, FirstN, HealthStatus
+from cgc.adapters.graph.base import GraphSink, StorageResult
 from cgc.core.chunk import Chunk, ChunkStrategy
 from cgc.core.errors import SourceNotFoundError
 from cgc.core.graph import RelationshipGraph
@@ -13,6 +14,14 @@ from cgc.core.query import Query, QueryResult, SqlQuery, SemanticQuery
 from cgc.core.schema import FieldId, Schema
 from cgc.core.triplet import Triplet
 from cgc.discovery.engine import RelationshipDiscoveryEngine
+
+
+class SinkNotFoundError(Exception):
+    """Raised when a graph sink is not found."""
+
+    def __init__(self, sink_id: str):
+        self.sink_id = sink_id
+        super().__init__(f"Graph sink not found: {sink_id}")
 # NOTE: extract_triplets is imported lazily in the method to avoid loading torch/spacy at startup
 
 
@@ -51,6 +60,7 @@ class Connector:
             cache_path: Optional path for SQLite cache (not yet implemented)
         """
         self._sources: dict[str, DataSource] = {}
+        self._sinks: dict[str, GraphSink] = {}
         self._schemas: dict[str, Schema] = {}
         self._graph: RelationshipGraph | None = None
         self._discovery_engine = RelationshipDiscoveryEngine()
@@ -112,6 +122,59 @@ class Connector:
     def has_source(self, source_id: str) -> bool:
         """Check if a source exists."""
         return source_id in self._sources
+
+    # === Graph Sink Management ===
+
+    def add_sink(self, sink: GraphSink) -> "Connector":
+        """Add a graph sink for triplet storage.
+
+        Args:
+            sink: GraphSink instance to add
+
+        Returns:
+            Self for chaining
+        """
+        self._sinks[sink.sink_id] = sink
+        return self
+
+    def remove_sink(self, sink_id: str) -> bool:
+        """Remove a graph sink.
+
+        Args:
+            sink_id: ID of sink to remove
+
+        Returns:
+            True if sink was removed, False if not found
+        """
+        if sink_id in self._sinks:
+            del self._sinks[sink_id]
+            return True
+        return False
+
+    @property
+    def sinks(self) -> list[str]:
+        """List connected sink IDs."""
+        return list(self._sinks.keys())
+
+    def get_sink(self, sink_id: str) -> GraphSink:
+        """Get a specific sink by ID.
+
+        Args:
+            sink_id: Sink identifier
+
+        Returns:
+            GraphSink instance
+
+        Raises:
+            SinkNotFoundError: If sink not found
+        """
+        if sink_id not in self._sinks:
+            raise SinkNotFoundError(sink_id)
+        return self._sinks[sink_id]
+
+    def has_sink(self, sink_id: str) -> bool:
+        """Check if a sink exists."""
+        return sink_id in self._sinks
 
     # === Schema Discovery ===
 
@@ -621,6 +684,172 @@ class Connector:
             "scores": result.scores,
         }
 
+    # === Triplet Storage (Graph Sinks) ===
+
+    async def store_triplets(
+        self,
+        sink_id: str,
+        triplets: list[Triplet],
+        graph_name: str | None = None,
+        merge: bool = True,
+    ) -> StorageResult:
+        """Store triplets in a graph sink.
+
+        Args:
+            sink_id: ID of the graph sink to use
+            triplets: List of triplets to store
+            graph_name: Optional graph name (for AGE, etc.)
+            merge: If True, merge with existing nodes/edges
+
+        Returns:
+            StorageResult with counts and any errors
+        """
+        sink = self.get_sink(sink_id)
+        return await sink.store_triplets(triplets, graph_name, merge)
+
+    async def extract_and_store(
+        self,
+        sink_id: str,
+        text: str,
+        use_gliner: bool = True,
+        domain: str | None = None,
+        graph_name: str | None = None,
+        merge: bool = True,
+        use_remote: bool = False,
+        store: Any = None,
+    ) -> dict[str, Any]:
+        """Extract triplets from text and store in a graph sink.
+
+        Combines extraction and storage in one operation.
+
+        Args:
+            sink_id: ID of the graph sink to use
+            text: Text to extract from
+            use_gliner: Whether to use GliNER for extraction
+            domain: Force a specific industry pack
+            graph_name: Optional graph name (for AGE)
+            merge: If True, merge with existing nodes/edges
+            use_remote: If True, use cloud relay for extraction
+            store: LicenseStore instance for remote extraction
+
+        Returns:
+            Dict with triplets and storage result
+        """
+        # Extract triplets
+        if use_remote:
+            triplets = self.extract_remote(text, use_gliner, domain, store)
+        else:
+            triplets = self.extract_triplets(text, use_gliner, domain)
+
+        # Store triplets
+        result = await self.store_triplets(sink_id, triplets, graph_name, merge)
+
+        return {
+            "triplets": [t.to_dict() for t in triplets],
+            "triplet_count": len(triplets),
+            "storage_result": {
+                "nodes_created": result.nodes_created,
+                "nodes_merged": result.nodes_merged,
+                "relationships_created": result.relationships_created,
+                "relationships_merged": result.relationships_merged,
+                "execution_time_ms": result.execution_time_ms,
+                "success": result.success,
+                "errors": result.errors,
+            },
+        }
+
+    async def extract_file_and_store(
+        self,
+        sink_id: str,
+        path: str,
+        domain: str | None = None,
+        use_gliner: bool = True,
+        graph_name: str | None = None,
+        merge: bool = True,
+        use_remote: bool = False,
+        store: Any = None,
+    ) -> dict[str, Any]:
+        """Extract triplets from a file and store in a graph sink.
+
+        Args:
+            sink_id: ID of the graph sink to use
+            path: Path to file
+            domain: Force a specific industry pack
+            use_gliner: Whether to use GliNER
+            graph_name: Optional graph name (for AGE)
+            merge: If True, merge with existing nodes/edges
+            use_remote: If True, use cloud relay for extraction
+            store: LicenseStore instance for remote extraction
+
+        Returns:
+            Dict with triplets, file type, and storage result
+        """
+        # Extract triplets
+        if use_remote:
+            triplets, file_type = self.extract_file_remote(path, domain, use_gliner, store)
+        else:
+            triplets, file_type = self.extract_file(path, domain, use_gliner)
+
+        # Store triplets
+        result = await self.store_triplets(sink_id, triplets, graph_name, merge)
+
+        return {
+            "triplets": [t.to_dict() for t in triplets],
+            "triplet_count": len(triplets),
+            "file_type": file_type,
+            "storage_result": {
+                "nodes_created": result.nodes_created,
+                "nodes_merged": result.nodes_merged,
+                "relationships_created": result.relationships_created,
+                "relationships_merged": result.relationships_merged,
+                "execution_time_ms": result.execution_time_ms,
+                "success": result.success,
+                "errors": result.errors,
+            },
+        }
+
+    async def query_graph_sink(
+        self,
+        sink_id: str,
+        cypher: str,
+        params: dict[str, Any] | None = None,
+        graph_name: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Execute a Cypher query against a graph sink.
+
+        Args:
+            sink_id: ID of the graph sink
+            cypher: Cypher query string
+            params: Query parameters
+            graph_name: Optional graph name (for AGE)
+
+        Returns:
+            List of result dictionaries
+        """
+        sink = self.get_sink(sink_id)
+        return await sink.query_graph(cypher, params, graph_name)
+
+    async def find_entity_in_sink(
+        self,
+        sink_id: str,
+        entity: str,
+        graph_name: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Find all triplets involving an entity in a graph sink.
+
+        Args:
+            sink_id: ID of the graph sink
+            entity: Entity name to search for
+            graph_name: Optional graph name (for AGE)
+            limit: Maximum results
+
+        Returns:
+            List of triplet dictionaries
+        """
+        sink = self.get_sink(sink_id)
+        return await sink.find_by_entity(entity, graph_name, limit)
+
     # === Health Checks ===
 
     async def health_check(self) -> dict[str, HealthStatus]:
@@ -682,6 +911,8 @@ class Connector:
         """Close all connections."""
         for source in self._sources.values():
             await source.close()
+        for sink in self._sinks.values():
+            await sink.close()
 
     async def __aenter__(self) -> "Connector":
         return self
@@ -693,7 +924,7 @@ class Connector:
 class ConnectorBuilder:
     """Builder for creating Connector instances.
 
-    Provides a fluent interface for adding sources.
+    Provides a fluent interface for adding sources and graph sinks.
 
     Example:
         ```python
@@ -702,6 +933,7 @@ class ConnectorBuilder:
             .add_postgres("db", "postgresql://localhost/app")
             .add_filesystem("docs", "./documents")
             .add_qdrant("vectors", "http://localhost:6333")
+            .add_neo4j("graph", "bolt://localhost:7687", "neo4j", "password")
             .build()
         )
         ```
@@ -709,6 +941,7 @@ class ConnectorBuilder:
 
     def __init__(self):
         self._sources: list[DataSource] = []
+        self._sinks: list[GraphSink] = []
         self._cache_path: str | None = None
 
     def add_source(self, source: DataSource) -> "ConnectorBuilder":
@@ -822,9 +1055,58 @@ class ConnectorBuilder:
         self._cache_path = path
         return self
 
+    # === Graph Sinks ===
+
+    def add_sink(self, sink: GraphSink) -> "ConnectorBuilder":
+        """Add a generic graph sink."""
+        self._sinks.append(sink)
+        return self
+
+    def add_neo4j(
+        self,
+        sink_id: str,
+        uri: str,
+        user: str | None = None,
+        password: str | None = None,
+        database: str | None = None,
+    ) -> "ConnectorBuilder":
+        """Add a Neo4j graph sink.
+
+        Args:
+            sink_id: Unique identifier for this sink
+            uri: Neo4j connection URI (bolt://host:port)
+            user: Username for authentication
+            password: Password for authentication
+            database: Database name (default: neo4j)
+        """
+        from cgc.adapters.graph.neo4j import Neo4jAdapter
+
+        self._sinks.append(Neo4jAdapter(sink_id, uri, user, password, database))
+        return self
+
+    def add_age(
+        self,
+        sink_id: str,
+        connection: str,
+        graph_name: str = "cgc_graph",
+    ) -> "ConnectorBuilder":
+        """Add a PostgreSQL Apache AGE graph sink.
+
+        Args:
+            sink_id: Unique identifier for this sink
+            connection: PostgreSQL connection string
+            graph_name: Name of the graph to use/create
+        """
+        from cgc.adapters.graph.age import AgeAdapter
+
+        self._sinks.append(AgeAdapter(sink_id, connection, graph_name))
+        return self
+
     def build(self) -> Connector:
         """Build the Connector instance."""
         connector = Connector(cache_path=self._cache_path)
         for source in self._sources:
             connector.add_source(source)
+        for sink in self._sinks:
+            connector.add_sink(sink)
         return connector

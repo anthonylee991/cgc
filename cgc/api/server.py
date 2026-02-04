@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from cgc.connector import Connector
 from cgc.core.chunk import FixedRowsStrategy, FixedTokensStrategy, BySectionsStrategy
+from cgc.licensing import LicenseStore, LicenseError, require_extraction, Tier, get_tier
 
 
 # === Request/Response Models ===
@@ -79,11 +80,15 @@ class TripletRequest(BaseModel):
     text: str
     use_gliner: bool = True
     domain: str | None = None  # Industry pack ID for domain-specific extraction
+    sink_uri: str | None = None  # Optional: neo4j://user:pass@host:port/db or age://connstr
+    graph_name: str | None = None  # Optional: graph name for storage
 
 
 class StructuredExtractionRequest(BaseModel):
     """Structured data extraction request."""
     data: list[dict[str, Any]]
+    sink_uri: str | None = None  # Optional: neo4j://user:pass@host:port/db or age://connstr
+    graph_name: str | None = None  # Optional: graph name for storage
 
 
 class ChunkedExtractionRequest(BaseModel):
@@ -93,6 +98,16 @@ class ChunkedExtractionRequest(BaseModel):
     strategy: str = "tokens:4000"
     use_gliner: bool = True
     domain: str | None = None
+    sink_uri: str | None = None  # Optional: neo4j://user:pass@host:port/db or age://connstr
+    graph_name: str | None = None  # Optional: graph name for storage
+
+
+class SinkConfig(BaseModel):
+    """Configuration for adding a graph sink."""
+    sink_id: str
+    sink_type: str  # neo4j or age
+    connection: str  # connection string or URI
+    options: dict[str, Any] = Field(default_factory=dict)
 
 
 class DomainDetectionRequest(BaseModel):
@@ -111,6 +126,7 @@ class FindRelatedRequest(BaseModel):
 # === Global Connector ===
 
 _connector: Connector | None = None
+_license_store: LicenseStore | None = None
 
 
 def get_connector() -> Connector:
@@ -119,6 +135,26 @@ def get_connector() -> Connector:
     if _connector is None:
         _connector = Connector()
     return _connector
+
+
+def get_license_store() -> LicenseStore:
+    """Get the global license store instance."""
+    global _license_store
+    if _license_store is None:
+        _license_store = LicenseStore()
+    return _license_store
+
+
+def check_pro_license() -> None:
+    """Check that the current license allows extraction features.
+
+    Raises HTTPException(403) if extraction is not allowed.
+    """
+    store = get_license_store()
+    try:
+        require_extraction(store)
+    except LicenseError as e:
+        raise HTTPException(403, str(e))
 
 
 def _normalize_path(path: str) -> str:
@@ -269,6 +305,229 @@ async def remove_source(source_id: str):
     if connector.remove_source(source_id):
         return {"status": "removed", "source_id": source_id}
     raise HTTPException(404, f"Source not found: {source_id}")
+
+
+# === Sink Management (Graph Storage) ===
+
+@app.get("/sinks")
+async def list_sinks():
+    """List connected graph sinks.
+
+    Requires CGC Pro license.
+    """
+    check_pro_license()
+    connector = get_connector()
+    return {"sinks": list(connector._sinks.keys())}
+
+
+@app.post("/sinks")
+async def add_sink(config: SinkConfig):
+    """Add a graph sink for storing extracted triplets.
+
+    Requires CGC Pro license.
+
+    Supported sink types:
+    - neo4j: Neo4j graph database
+    - age: PostgreSQL with Apache AGE extension
+    """
+    check_pro_license()
+    connector = get_connector()
+
+    try:
+        if config.sink_type == "neo4j":
+            from cgc.adapters.graph import Neo4jAdapter
+            user = config.options.get("user")
+            password = config.options.get("password")
+            database = config.options.get("database")
+            adapter = Neo4jAdapter(
+                config.sink_id, config.connection,
+                user=user, password=password, database=database
+            )
+            connector.add_sink(adapter)
+        elif config.sink_type == "age":
+            from cgc.adapters.graph import AgeAdapter
+            graph_name = config.options.get("graph_name", "cgc_graph")
+            adapter = AgeAdapter(config.sink_id, config.connection, graph_name=graph_name)
+            connector.add_sink(adapter)
+        else:
+            raise HTTPException(400, f"Unknown sink type: {config.sink_type}. Supported: neo4j, age")
+
+        return {"status": "added", "sink_id": config.sink_id}
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.delete("/sinks/{sink_id}")
+async def remove_sink(sink_id: str):
+    """Remove a graph sink.
+
+    Requires CGC Pro license.
+    """
+    check_pro_license()
+    connector = get_connector()
+    if connector.remove_sink(sink_id):
+        return {"status": "removed", "sink_id": sink_id}
+    raise HTTPException(404, f"Sink not found: {sink_id}")
+
+
+@app.get("/sinks/{sink_id}/stats")
+async def get_sink_stats(sink_id: str):
+    """Get statistics from a graph sink.
+
+    Requires CGC Pro license.
+    """
+    check_pro_license()
+    connector = get_connector()
+
+    if not connector.has_sink(sink_id):
+        raise HTTPException(404, f"Sink not found: {sink_id}")
+
+    try:
+        sink = connector.get_sink(sink_id)
+        await sink.connect()
+        stats = await sink.get_stats()
+        return {
+            "sink_id": sink_id,
+            "node_count": stats.node_count,
+            "edge_count": stats.edge_count,
+            "node_labels": stats.node_labels,
+            "relationship_types": stats.relationship_types,
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+class CypherQueryRequest(BaseModel):
+    """Cypher query request."""
+    cypher: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    graph_name: str | None = None  # For AGE sinks
+
+
+@app.post("/sinks/{sink_id}/query")
+async def query_sink(sink_id: str, request: CypherQueryRequest):
+    """Execute a Cypher query against a graph sink.
+
+    Requires CGC Pro license.
+
+    Supports both Neo4j Cypher and AGE-compatible Cypher queries.
+    """
+    check_pro_license()
+    connector = get_connector()
+
+    if not connector.has_sink(sink_id):
+        raise HTTPException(404, f"Sink not found: {sink_id}")
+
+    try:
+        sink = connector.get_sink(sink_id)
+        await sink.connect()
+        results = await sink.query_graph(request.cypher, request.params, request.graph_name)
+        return {
+            "results": results,
+            "count": len(results),
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/sinks/{sink_id}/find/{entity}")
+async def find_entity_in_sink(
+    sink_id: str,
+    entity: str,
+    graph_name: str | None = Query(default=None),
+    limit: int = Query(default=100),
+):
+    """Find all triplets involving a specific entity in a graph sink.
+
+    Requires CGC Pro license.
+    """
+    check_pro_license()
+    connector = get_connector()
+
+    if not connector.has_sink(sink_id):
+        raise HTTPException(404, f"Sink not found: {sink_id}")
+
+    try:
+        sink = connector.get_sink(sink_id)
+        await sink.connect()
+        results = await sink.find_by_entity(entity, graph_name, limit)
+        return {
+            "entity": entity,
+            "triplets": results,
+            "count": len(results),
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+async def _store_to_sink_uri(triplets: list, sink_uri: str, graph_name: str | None = None) -> dict:
+    """Store triplets to a sink specified by URI.
+
+    Supported URI formats:
+    - neo4j://user:pass@host:port/database
+    - neo4j+s://user:pass@host:port/database (TLS)
+    - age://user:pass@host:port/database
+    - postgresql://... (treated as AGE)
+    """
+    from urllib.parse import urlparse, unquote
+
+    parsed = urlparse(sink_uri)
+    scheme = parsed.scheme.lower()
+
+    if scheme in ("neo4j", "neo4j+s", "neo4j+ssc", "bolt", "bolt+s"):
+        from cgc.adapters.graph import Neo4jAdapter
+
+        # Extract credentials from URI
+        user = unquote(parsed.username) if parsed.username else None
+        password = unquote(parsed.password) if parsed.password else None
+        database = parsed.path.lstrip("/") if parsed.path and parsed.path != "/" else None
+
+        # Reconstruct URI without credentials for neo4j driver
+        if scheme == "neo4j+s":
+            driver_uri = f"neo4j+s://{parsed.hostname}:{parsed.port or 7687}"
+        elif scheme == "bolt+s":
+            driver_uri = f"bolt+s://{parsed.hostname}:{parsed.port or 7687}"
+        else:
+            driver_uri = f"bolt://{parsed.hostname}:{parsed.port or 7687}"
+
+        adapter = Neo4jAdapter("_temp_neo4j", driver_uri, user=user, password=password, database=database)
+        try:
+            await adapter.connect()
+            result = await adapter.store_triplets(triplets, graph_name=graph_name)
+            return {
+                "stored": result.stored_count,
+                "skipped": result.skipped_count,
+                "errors": result.errors,
+                "sink_type": "neo4j",
+            }
+        finally:
+            await adapter.close()
+
+    elif scheme in ("age", "postgresql", "postgres"):
+        from cgc.adapters.graph import AgeAdapter
+
+        # For AGE, pass the full connection string
+        if scheme == "age":
+            # Convert age:// to postgresql://
+            conn_str = sink_uri.replace("age://", "postgresql://", 1)
+        else:
+            conn_str = sink_uri
+
+        adapter = AgeAdapter("_temp_age", conn_str, graph_name=graph_name or "cgc_graph")
+        try:
+            await adapter.connect()
+            result = await adapter.store_triplets(triplets, graph_name=graph_name)
+            return {
+                "stored": result.stored_count,
+                "skipped": result.skipped_count,
+                "errors": result.errors,
+                "sink_type": "age",
+            }
+        finally:
+            await adapter.close()
+
+    else:
+        raise ValueError(f"Unsupported sink URI scheme: {scheme}. Use neo4j://, age://, or postgresql://")
 
 
 # === Schema Discovery ===
@@ -615,16 +874,24 @@ async def find_related(request: FindRelatedRequest):
 async def extract_triplets(request: TripletRequest):
     """Extract triplets from text.
 
+    Requires CGC Pro license.
+
     Supports pattern-only (fast) or hybrid GliNER+GliREL extraction (higher recall).
     Optionally force an industry pack via the `domain` parameter.
+
+    If `sink_uri` is provided, triplets are also stored to a graph database:
+    - neo4j://user:pass@host:port/database
+    - age://user:pass@host:port/database (PostgreSQL with Apache AGE)
     """
+    check_pro_license()
     connector = get_connector()
 
     try:
         triplets = connector.extract_triplets(
             request.text, use_gliner=request.use_gliner, domain=request.domain
         )
-        return {
+
+        response = {
             "triplets": [
                 {
                     "subject": t.subject,
@@ -639,6 +906,13 @@ async def extract_triplets(request: TripletRequest):
             ],
             "count": len(triplets),
         }
+
+        # Store to sink if URI provided
+        if request.sink_uri and triplets:
+            sink_result = await _store_to_sink_uri(triplets, request.sink_uri, request.graph_name)
+            response["sink"] = sink_result
+
+        return response
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -647,14 +921,20 @@ async def extract_triplets(request: TripletRequest):
 async def extract_structured(request: StructuredExtractionRequest):
     """Extract triplets from structured data using hub-and-spoke model.
 
+    Requires CGC Pro license.
+
     Classifies columns (primary entity, foreign key, property, etc.)
     and builds entity relationships automatically.
+
+    If `sink_uri` is provided, triplets are also stored to a graph database.
     """
+    check_pro_license()
     connector = get_connector()
 
     try:
         triplets = connector.extract_triplets_structured(request.data)
-        return {
+
+        response = {
             "triplets": [
                 {
                     "subject": t.subject,
@@ -667,6 +947,13 @@ async def extract_structured(request: StructuredExtractionRequest):
             "count": len(triplets),
             "rows_processed": len(request.data),
         }
+
+        # Store to sink if URI provided
+        if request.sink_uri and triplets:
+            sink_result = await _store_to_sink_uri(triplets, request.sink_uri, request.graph_name)
+            response["sink"] = sink_result
+
+        return response
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -676,12 +963,19 @@ async def extract_file(
     file: UploadFile = File(...),
     domain: str | None = Form(default=None),
     use_gliner: bool = Form(default=True),
+    sink_uri: str | None = Form(default=None),
+    graph_name: str | None = Form(default=None),
 ):
     """Extract triplets from an uploaded file.
 
+    Requires CGC Pro license.
+
     Supports structured formats (CSV, JSON, XLS, XLSX) via hub-and-spoke extraction,
     and unstructured formats (text, PDF, Markdown, etc.) via pattern + ML extraction.
+
+    If `sink_uri` is provided, triplets are also stored to a graph database.
     """
+    check_pro_license()
     from cgc.adapters.parsers import parse_file
 
     try:
@@ -697,7 +991,7 @@ async def extract_file(
             triplets = connector.extract_triplets(parsed.text, use_gliner=use_gliner, domain=domain)
             file_type = "unstructured"
 
-        return {
+        response = {
             "triplets": [
                 {
                     "subject": t.subject,
@@ -714,6 +1008,13 @@ async def extract_file(
             "file_type": file_type,
             "filename": file.filename,
         }
+
+        # Store to sink if URI provided
+        if sink_uri and triplets:
+            sink_result = await _store_to_sink_uri(triplets, sink_uri, graph_name)
+            response["sink"] = sink_result
+
+        return response
     except Exception as e:
         raise HTTPException(500, str(e))
 
@@ -722,10 +1023,15 @@ async def extract_file(
 async def extract_chunked(request: ChunkedExtractionRequest):
     """Chunk a file then extract triplets from each chunk.
 
+    Requires CGC Pro license.
+
     Designed for unstructured data (PDFs, docs, large text files) where
     chunking before extraction improves results. Requires a connected
     filesystem source.
+
+    If `sink_uri` is provided, all extracted triplets are stored to a graph database.
     """
+    check_pro_license()
     connector = get_connector()
 
     if not connector.has_source(request.source_id):
@@ -752,8 +1058,12 @@ async def extract_chunked(request: ChunkedExtractionRequest):
             use_gliner=request.use_gliner, domain=request.domain,
         )
 
+        # Collect all triplets for potential sink storage
+        all_triplets = []
+
         # Serialize triplets within each chunk
         for chunk_result in result["chunks"]:
+            all_triplets.extend(chunk_result["triplets"])
             chunk_result["triplets"] = [
                 {
                     "subject": t.subject,
@@ -764,6 +1074,11 @@ async def extract_chunked(request: ChunkedExtractionRequest):
                 }
                 for t in chunk_result["triplets"]
             ]
+
+        # Store to sink if URI provided
+        if request.sink_uri and all_triplets:
+            sink_result = await _store_to_sink_uri(all_triplets, request.sink_uri, request.graph_name)
+            result["sink"] = sink_result
 
         return result
     except FileNotFoundError as e:
@@ -778,8 +1093,11 @@ async def extract_chunked(request: ChunkedExtractionRequest):
 async def detect_domain(request: DomainDetectionRequest):
     """Detect the industry domain of text for optimized extraction.
 
+    Requires CGC Pro license.
+
     Uses E5 embeddings to route text to the best-matching industry pack.
     """
+    check_pro_license()
     connector = get_connector()
 
     try:
@@ -791,7 +1109,11 @@ async def detect_domain(request: DomainDetectionRequest):
 
 @app.get("/packs")
 async def list_packs():
-    """List all available industry packs for domain-specific extraction."""
+    """List all available industry packs for domain-specific extraction.
+
+    Requires CGC Pro license.
+    """
+    check_pro_license()
     from cgc.discovery.industry_packs import get_all_packs
 
     packs = get_all_packs()

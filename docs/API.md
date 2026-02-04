@@ -67,8 +67,12 @@ Before diving into the API, it's important to understand what CGC handles and wh
 | `POST /extract/chunked` | -- | Yes |
 | `POST /detect/domain` | -- | Yes |
 | `GET /packs` | -- | Yes |
+| `GET /sinks`, `POST /sinks`, `DELETE /sinks/{id}` | -- | Yes |
+| `GET /sinks/{id}/stats` | -- | Yes |
+| `POST /sinks/{id}/query` | -- | Yes |
+| `GET /sinks/{id}/find/{entity}` | -- | Yes |
 
-Extraction endpoints return a `403` error on the free tier with instructions to upgrade.
+Extraction and sink endpoints return a `403` error on the free tier with instructions to upgrade.
 
 ---
 
@@ -470,6 +474,8 @@ POST http://localhost:8420/extract/triplets
 | `text` | string | required | Text to extract from |
 | `use_gliner` | boolean | `true` | Use GliNER ML model (higher recall). Set `false` for pattern-only extraction. |
 | `domain` | string | `null` | Force an industry pack (e.g., `"tech_startup"`, `"healthcare_medical"`). `null` for auto-detection. |
+| `sink_uri` | string | `null` | Store triplets to a graph database. Supports `neo4j://`, `age://`, or `postgresql://` URIs. |
+| `graph_name` | string | `null` | Graph name for AGE sinks. |
 
 Returns:
 ```json
@@ -584,10 +590,149 @@ GET http://localhost:8420/packs
 
 Returns 11 industry packs: `general_business`, `tech_startup`, `ecommerce_retail`, `legal_corporate`, `finance_investment`, `hr_people`, `healthcare_medical`, `real_estate`, `supply_chain`, `research_academic`, `government_public`.
 
-**What to do with triplets:** Store them yourself in:
-- A database table with columns: subject, predicate, object
-- Neo4j or another graph database
-- A JSON file for later use
+**What to do with triplets:** Store them yourself OR use the `sink_uri` parameter to automatically store to a graph database.
+
+---
+
+### Managing Graph Sinks (Trial/Pro)
+
+Graph sinks are databases where extracted triplets can be stored automatically.
+
+#### List Sinks
+```
+GET http://localhost:8420/sinks
+```
+
+#### Add a Sink
+```
+POST http://localhost:8420/sinks
+{
+  "sink_id": "mygraph",
+  "sink_type": "neo4j",
+  "connection": "bolt://localhost:7687",
+  "options": {
+    "user": "neo4j",
+    "password": "password",
+    "database": "neo4j"
+  }
+}
+```
+
+**Sink types:**
+- `neo4j` - Neo4j graph database (requires `user`, `password`)
+- `age` - PostgreSQL with Apache AGE extension (requires `graph_name`)
+
+**AGE Example:**
+```
+POST http://localhost:8420/sinks
+{
+  "sink_id": "mygraph",
+  "sink_type": "age",
+  "connection": "postgresql://user:pass@localhost:5432/mydb",
+  "options": {
+    "graph_name": "company_graph"
+  }
+}
+```
+
+#### Remove a Sink
+```
+DELETE http://localhost:8420/sinks/mygraph
+```
+
+#### Get Sink Statistics
+```
+GET http://localhost:8420/sinks/mygraph/stats
+```
+
+Returns:
+```json
+{
+  "sink_id": "mygraph",
+  "node_count": 1523,
+  "edge_count": 2891,
+  "graph_names": ["company_graph"]
+}
+```
+
+#### Query a Sink (Cypher)
+Execute Cypher queries against a graph sink.
+```
+POST http://localhost:8420/sinks/mygraph/query
+{
+  "cypher": "MATCH (n)-[r]->(m) RETURN n.name, type(r), m.name LIMIT 10",
+  "params": {},
+  "graph_name": null
+}
+```
+
+Returns:
+```json
+{
+  "results": [
+    {"n.name": "John", "type(r)": "WORKS_AT", "m.name": "Apple"},
+    {"n.name": "Jane", "type(r)": "MANAGES", "m.name": "Engineering"}
+  ],
+  "count": 2
+}
+```
+
+#### Find Entity in Sink
+Find all triplets involving a specific entity.
+```
+GET http://localhost:8420/sinks/mygraph/find/John?limit=50
+```
+
+Returns:
+```json
+{
+  "entity": "John",
+  "triplets": [
+    {"subject": "John", "predicate": "WORKS_AT", "object": "Apple"},
+    {"subject": "John", "predicate": "LIVES_IN", "object": "California"}
+  ],
+  "count": 2
+}
+```
+
+---
+
+### Storing Triplets via URI
+
+Instead of managing sinks explicitly, you can pass a `sink_uri` parameter to any extraction endpoint:
+
+**Neo4j:**
+```
+POST http://localhost:8420/extract/triplets
+{
+  "text": "John works at Apple Inc.",
+  "sink_uri": "neo4j://neo4j:password@localhost:7687/neo4j"
+}
+```
+
+**PostgreSQL AGE:**
+```
+POST http://localhost:8420/extract/triplets
+{
+  "text": "John works at Apple Inc.",
+  "sink_uri": "postgresql://user:pass@localhost:5432/mydb",
+  "graph_name": "company_graph"
+}
+```
+
+The response includes a `sink` field with storage results:
+```json
+{
+  "triplets": [...],
+  "count": 2,
+  "sink": {
+    "stored": 2,
+    "skipped": 0,
+    "errors": [],
+    "sink_type": "neo4j"
+  }
+}
+```
 
 ---
 

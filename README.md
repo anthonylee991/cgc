@@ -78,6 +78,7 @@ CGC works out of the box with a generous free tier. Pro unlocks cloud-powered gr
 | **Graph extraction (files)** | -- | Yes | Yes |
 | **Structured extraction (CSV, Excel, JSON)** | -- | Yes | Yes |
 | **Domain detection (11 industry packs)** | -- | Yes | Yes |
+| **Graph sinks (Neo4j, PostgreSQL AGE)** | -- | Yes | Yes |
 | **Cloud-powered extraction (no ML setup)** | -- | -- | Yes |
 
 **New users get a free 14-day trial** with full access to all extraction features. After the trial, context extension features (connecting, discovering, sampling, chunking, searching) remain free forever.
@@ -186,6 +187,11 @@ cgc extract "John Smith is the CEO of Acme Corp in New York."
 Extract from structured files:
 ```
 cgc extract-file sales_data.csv
+```
+
+Store extracted data directly to a graph database:
+```
+cgc extract "Elon Musk is the CEO of Tesla." --sink neo4j://localhost:7687
 ```
 
 ---

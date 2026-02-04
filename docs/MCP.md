@@ -9,6 +9,9 @@ This guide explains how to connect CGC to Claude Desktop, Claude Code, or other 
 - [What is MCP?](#what-is-mcp)
 - [Setup for Claude Desktop](#setup-for-claude-desktop)
 - [Setup for Claude Code (VS Code)](#setup-for-claude-code-vs-code)
+- [Setup for Cursor](#setup-for-cursor)
+- [Setup for Windsurf](#setup-for-windsurf)
+- [Setup for Cline](#setup-for-cline)
 - [Available Tools](#available-tools)
 - [Free vs Pro Tools](#free-vs-pro-tools)
 - [Example Conversations](#example-conversations)
@@ -166,6 +169,161 @@ Close and reopen VS Code for the changes to take effect.
 
 ---
 
+## Setup for Cursor
+
+Cursor is an AI-powered code editor with built-in MCP support.
+
+### Step 1: Locate the Config File
+
+**Windows:**
+```
+%USERPROFILE%\.cursor\mcp.json
+```
+
+**Mac/Linux:**
+```
+~/.cursor/mcp.json
+```
+
+You can also use a project-level config at `.cursor/mcp.json` in your project root.
+
+**Alternative:** Open Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows) and search for "MCP" to access MCP settings directly.
+
+### Step 2: Edit the Config File
+
+Create or edit the `mcp.json` file:
+
+**Windows:**
+```json
+{
+  "mcpServers": {
+    "cgc": {
+      "command": "C:\\path\\to\\cgc_mcp.exe",
+      "args": []
+    }
+  }
+}
+```
+
+**Mac:**
+```json
+{
+  "mcpServers": {
+    "cgc": {
+      "command": "/path/to/cgc_mcp",
+      "args": []
+    }
+  }
+}
+```
+
+### Step 3: Restart Cursor
+
+Completely quit Cursor (check system tray/menu bar) and reopen for changes to take effect.
+
+### Cursor-Specific Notes
+
+- Cursor has a **100 tool limit** across all MCP servers. CGC uses ~20 tools, leaving room for other servers.
+- Use project-level `.cursor/mcp.json` to share MCP configs with your team via git.
+- Cursor's Composer and Chat both have access to MCP tools.
+
+---
+
+## Setup for Windsurf
+
+Windsurf (by Codeium) is an AI-powered IDE with MCP support via Cascade.
+
+### Step 1: Locate the Config File
+
+**Windows:**
+```
+%USERPROFILE%\.codeium\windsurf\mcp_config.json
+```
+
+**Mac/Linux:**
+```
+~/.codeium/windsurf/mcp_config.json
+```
+
+**Alternative:** Open Windsurf Settings > Cascade > MCP Servers to manage servers via the UI.
+
+### Step 2: Edit the Config File
+
+Create or edit the `mcp_config.json` file:
+
+**Windows:**
+```json
+{
+  "mcpServers": {
+    "cgc": {
+      "command": "C:\\path\\to\\cgc_mcp.exe",
+      "args": []
+    }
+  }
+}
+```
+
+**Mac:**
+```json
+{
+  "mcpServers": {
+    "cgc": {
+      "command": "/path/to/cgc_mcp",
+      "args": []
+    }
+  }
+}
+```
+
+### Step 3: Restart Windsurf
+
+Completely quit and restart Windsurf for the configuration to load.
+
+### Windsurf-Specific Notes
+
+- Windsurf has a **100 tool limit** across all MCP servers. You can toggle individual tools on/off in MCP settings.
+- Check logs at `~/.codeium/windsurf/logs` if you encounter issues.
+- Windsurf supports both `stdio` (local) and `sse` (remote) transport types. CGC uses `stdio`.
+
+---
+
+## Setup for Cline
+
+Cline is a VS Code extension for AI-assisted coding with MCP support.
+
+### Step 1: Locate the Config File
+
+Cline uses the same MCP config location as Claude Code:
+
+**Windows:**
+```
+%USERPROFILE%\.claude\settings.json
+```
+
+**Mac/Linux:**
+```
+~/.claude/settings.json
+```
+
+### Step 2: Edit the Config File
+
+```json
+{
+  "mcpServers": {
+    "cgc": {
+      "command": "C:\\path\\to\\cgc_mcp.exe",
+      "args": []
+    }
+  }
+}
+```
+
+### Step 3: Restart VS Code
+
+Close and reopen VS Code for the changes to take effect.
+
+---
+
 ## Available Tools
 
 Once connected, Claude has access to these tools:
@@ -220,24 +378,39 @@ Once connected, Claude has access to these tools:
 | `cgc_session_stats` | Check session health and size usage |
 | `cgc_session_list` | List all sessions (including archived) |
 
+### Graph Sinks (Pro)
+
+These tools let you manage and query graph databases where extracted triplets are stored. Extraction itself is done via CLI or API.
+
+| Tool | What it does |
+|------|--------------|
+| `cgc_add_sink` | Connect a graph database (Neo4j or PostgreSQL AGE) |
+| `cgc_remove_sink` | Disconnect a graph sink |
+| `cgc_list_sinks` | See all connected graph sinks |
+| `cgc_sink_stats` | Get node/edge counts from a graph sink |
+| `cgc_sink_query` | Execute Cypher queries to explore the graph |
+| `cgc_sink_find` | Find all triplets involving a specific entity |
+
 ---
 
 ## Free vs Pro Tools
 
-All MCP tools are available on the free tier. The MCP server provides context extension -- connecting to data, exploring schemas, sampling, chunking, searching, and running SQL queries. These features work without a license.
+Most MCP tools are available on the free tier. The MCP server provides context extension -- connecting to data, exploring schemas, sampling, chunking, searching, and running SQL queries. These features work without a license.
 
 **Graph extraction** (converting text into knowledge graph triplets) is available via the CLI (`cgc extract`, `cgc extract-file`) or the HTTP API (`POST /extract/*`). Extraction requires an active trial or Pro license.
 
-| MCP (all tiers) | CLI/API (Trial/Pro only) |
-|------------------|--------------------------|
-| Connect to data sources | Extract triplets from text |
-| Discover schemas | Extract from files (CSV, Excel, JSON) |
-| Sample data | Chunk-then-extract workflow |
-| Run SQL queries | Domain detection |
-| Search text patterns | Industry pack routing |
-| Chunk large files | |
-| Find relationships | |
-| Session tracking | |
+**Graph sink management** (connecting to Neo4j/AGE, querying the graph) is available via MCP, but requires extracted data. Use CLI or API to extract, then explore the results via MCP.
+
+| MCP (all tiers) | MCP (Pro - after extraction) | CLI/API (Trial/Pro only) |
+|------------------|------------------------------|--------------------------|
+| Connect to data sources | Connect graph sinks | Extract triplets from text |
+| Discover schemas | Query graph with Cypher | Extract from files |
+| Sample data | Find entities in graph | Store to Neo4j / AGE |
+| Run SQL queries | Get graph statistics | Chunk-then-extract |
+| Search text patterns | | Domain detection |
+| Chunk large files | | Industry pack routing |
+| Find relationships | | |
+| Session tracking | | |
 
 ---
 
@@ -495,8 +668,10 @@ Claude doesn't see the CGC tools.
 
 1. **Check the config file path**
    - Make sure you're editing the correct file
-   - Windows Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json`
-   - Claude Code: `~/.claude/settings.json`
+   - Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac)
+   - Claude Code / Cline: `~/.claude/settings.json`
+   - Cursor: `~/.cursor/mcp.json`
+   - Windsurf: `~/.codeium/windsurf/mcp_config.json`
 
 2. **Check the executable path**
    - Use the full path to cgc_mcp.exe

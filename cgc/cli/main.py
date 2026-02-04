@@ -34,7 +34,14 @@ console = Console()
 
 
 def run_async(coro):
-    """Run an async function."""
+    """Run an async function.
+
+    On Windows, uses SelectorEventLoop for compatibility with asyncpg/psycopg3.
+    """
+    import sys
+    if sys.platform == "win32":
+        # Windows requires SelectorEventLoop for asyncpg to work
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     return asyncio.run(coro)
 
 
@@ -481,17 +488,24 @@ def extract(
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
     local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
+    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink to store triplets (neo4j://host:port or age://connstr)"),
+    graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets (relationships) from text.
 
     Requires CGC Pro or an active trial. Use --local to run extraction
     locally instead of via the cloud relay.
 
+    Use --sink to store triplets directly in a graph database:
+      - Neo4j: --sink neo4j://user:pass@localhost:7687
+      - PostgreSQL AGE: --sink age://user:pass@localhost:5432/dbname
+
     Examples:
         cgc extract "Apple was founded by Steve Jobs in California"
         cgc extract "The user John placed order #123" --no-gliner
         cgc extract "Elon Musk founded SpaceX" --domain tech_startup
         cgc extract "some text" --local
+        cgc extract "Steve Jobs founded Apple" --sink neo4j://neo4j:password@localhost:7687
     """
     from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
 
@@ -516,11 +530,15 @@ def extract(
         console.print("[yellow]No triplets found[/yellow]")
         return
 
+    # Store to graph sink if specified
+    if sink:
+        _store_to_sink(triplets, sink, graph_name)
+
     if output:
         data = [t.to_dict() for t in triplets]
         Path(output).write_text(json.dumps(data, indent=2))
         console.print(f"[green]Saved {len(triplets)} triplets to {output}[/green]")
-    else:
+    elif not sink:  # Only show table if not sinking (sink shows its own output)
         table = Table(title="Extracted Triplets")
         table.add_column("Subject")
         table.add_column("Predicate")
@@ -545,6 +563,8 @@ def extract_file(
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for unstructured extraction"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
     local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
+    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink to store triplets (neo4j://host:port or age://connstr)"),
+    graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets from a file.
 
@@ -552,12 +572,17 @@ def extract_file(
     XLS, XLSX), uses hub-and-spoke extraction. For unstructured files
     (text, PDF, etc.), uses pattern + ML extraction.
 
+    Use --sink to store triplets directly in a graph database:
+      - Neo4j: --sink neo4j://user:pass@localhost:7687
+      - PostgreSQL AGE: --sink age://user:pass@localhost:5432/dbname
+
     Examples:
         cgc extract-file ./report.txt
         cgc extract-file ./data.json
         cgc extract-file ./sales.csv --domain ecommerce_retail
         cgc extract-file ./inventory.xlsx
         cgc extract-file ./data.csv --local
+        cgc extract-file ./data.csv --sink neo4j://neo4j:password@localhost:7687
     """
     from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
 
@@ -583,6 +608,12 @@ def extract_file(
         except FileNotFoundError:
             console.print(f"[red]File not found: {path}[/red]")
             raise typer.Exit(1)
+
+    # Store to graph sink if specified
+    if sink:
+        _store_to_sink(triplets, sink, graph_name)
+        if not output:
+            return  # Don't show table if storing to sink
 
     label = "Structured" if file_type == "structured" else "Extracted"
     _display_triplets(triplets, output, f"{label} Triplets ({Path(path).name})")
@@ -664,7 +695,81 @@ def _display_triplets(triplets: list, output: Optional[str], title: str):
         if len(triplets) > 50:
             console.print(f"[dim]Showing first 50 of {len(triplets)} triplets[/dim]")
 
-        console.print(table)
+
+def _store_to_sink(triplets: list, sink_uri: str, graph_name: Optional[str] = None):
+    """Store triplets to a graph sink specified by URI.
+
+    Supported URI formats:
+      - neo4j://user:pass@host:port[/database]
+      - age://user:pass@host:port/database[?graph=name]
+    """
+    from urllib.parse import urlparse, parse_qs
+
+    if not triplets:
+        console.print("[yellow]No triplets to store[/yellow]")
+        return
+
+    parsed = urlparse(sink_uri)
+    scheme = parsed.scheme.lower()
+
+    async def _store():
+        if scheme == "neo4j" or scheme == "bolt":
+            from cgc.adapters.graph.neo4j import Neo4jAdapter
+
+            # Parse Neo4j URI
+            user = parsed.username
+            password = parsed.password
+            host = parsed.hostname or "localhost"
+            port = parsed.port or 7687
+            database = parsed.path.strip("/") if parsed.path and parsed.path != "/" else "neo4j"
+
+            uri = f"bolt://{host}:{port}"
+            sink = Neo4jAdapter("cli_sink", uri, user, password, database)
+
+            console.print(f"[dim]Connecting to Neo4j at {host}:{port}...[/dim]")
+
+        elif scheme == "age" or scheme == "postgresql" or scheme == "postgres":
+            from cgc.adapters.graph.age import AgeAdapter
+
+            # Reconstruct PostgreSQL connection string
+            conn = f"postgresql://{parsed.username or ''}:{parsed.password or ''}@{parsed.hostname}:{parsed.port or 5432}{parsed.path}"
+
+            # Extract graph name from query params or use provided
+            query_params = parse_qs(parsed.query)
+            gname = graph_name or query_params.get("graph", ["cgc_graph"])[0]
+
+            sink = AgeAdapter("cli_sink", conn, gname)
+
+            console.print(f"[dim]Connecting to PostgreSQL AGE at {parsed.hostname}...[/dim]")
+
+        else:
+            console.print(f"[red]Unknown sink scheme: {scheme}[/red]")
+            console.print("Supported: neo4j://, age://, postgresql://")
+            raise typer.Exit(1)
+
+        try:
+            result = await sink.store_triplets(triplets, graph_name)
+
+            if result.success:
+                console.print(f"[green]Stored {len(triplets)} triplets to graph[/green]")
+                if result.nodes_merged > 0:
+                    console.print(f"  Nodes merged: {result.nodes_merged}")
+                if result.nodes_created > 0:
+                    console.print(f"  Nodes created: {result.nodes_created}")
+                if result.relationships_merged > 0:
+                    console.print(f"  Relationships merged: {result.relationships_merged}")
+                if result.relationships_created > 0:
+                    console.print(f"  Relationships created: {result.relationships_created}")
+                console.print(f"  Time: {result.execution_time_ms:.0f}ms")
+            else:
+                console.print(f"[red]Storage failed with {len(result.errors)} errors[/red]")
+                for err in result.errors[:5]:
+                    console.print(f"  [red]{err}[/red]")
+
+        finally:
+            await sink.close()
+
+    run_async(_store())
 
 
 # =============================================================================

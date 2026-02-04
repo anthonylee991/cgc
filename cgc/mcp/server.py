@@ -366,6 +366,127 @@ def create_server() -> Server:
                     },
                 },
             ),
+            # === Graph Sink Tools ===
+            Tool(
+                name="cgc_add_sink",
+                description="Add a graph sink for storing extracted triplets. Supports: neo4j, age (PostgreSQL Apache AGE)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "sink_id": {
+                            "type": "string",
+                            "description": "Unique identifier for this sink",
+                        },
+                        "sink_type": {
+                            "type": "string",
+                            "enum": ["neo4j", "age"],
+                            "description": "Type of graph database",
+                        },
+                        "connection": {
+                            "type": "string",
+                            "description": "Connection string (bolt://host:port for Neo4j, postgresql://... for AGE)",
+                        },
+                        "user": {
+                            "type": "string",
+                            "description": "Username for authentication (Neo4j)",
+                        },
+                        "password": {
+                            "type": "string",
+                            "description": "Password for authentication (Neo4j)",
+                        },
+                        "database": {
+                            "type": "string",
+                            "description": "Database name (Neo4j) or graph name (AGE)",
+                        },
+                    },
+                    "required": ["sink_id", "sink_type", "connection"],
+                },
+            ),
+            Tool(
+                name="cgc_list_sinks",
+                description="List all connected graph sinks",
+                inputSchema={
+                    "type": "object",
+                    "properties": {},
+                },
+            ),
+            Tool(
+                name="cgc_remove_sink",
+                description="Remove a graph sink",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "sink_id": {
+                            "type": "string",
+                            "description": "ID of sink to remove",
+                        },
+                    },
+                    "required": ["sink_id"],
+                },
+            ),
+            Tool(
+                name="cgc_sink_stats",
+                description="Get statistics from a graph sink (node count, edge count, graph names)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "sink_id": {
+                            "type": "string",
+                            "description": "Sink ID to get stats from",
+                        },
+                    },
+                    "required": ["sink_id"],
+                },
+            ),
+            Tool(
+                name="cgc_sink_query",
+                description="Execute a Cypher query against a graph sink. Use this to explore stored triplets.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "sink_id": {
+                            "type": "string",
+                            "description": "Sink ID to query",
+                        },
+                        "cypher": {
+                            "type": "string",
+                            "description": "Cypher query to execute (e.g., 'MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 10')",
+                        },
+                        "graph_name": {
+                            "type": "string",
+                            "description": "Graph name (for AGE sinks)",
+                        },
+                    },
+                    "required": ["sink_id", "cypher"],
+                },
+            ),
+            Tool(
+                name="cgc_sink_find",
+                description="Find all triplets involving a specific entity in a graph sink",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "sink_id": {
+                            "type": "string",
+                            "description": "Sink ID to search",
+                        },
+                        "entity": {
+                            "type": "string",
+                            "description": "Entity name to search for",
+                        },
+                        "graph_name": {
+                            "type": "string",
+                            "description": "Graph name (for AGE sinks)",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum results to return",
+                            "default": 50,
+                        },
+                    },
+                    "required": ["sink_id", "entity"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -783,6 +904,130 @@ Status: {"WARNING: Session will be rotated on next save" if stats.needs_rotation
 
                 return CallToolResult(
                     content=[TextContent(type="text", text=result)]
+                )
+
+            # === Graph Sink Tools ===
+
+            elif name == "cgc_add_sink":
+                sink_id = arguments["sink_id"]
+                sink_type = arguments["sink_type"]
+                connection = arguments["connection"]
+
+                if sink_type == "neo4j":
+                    from cgc.adapters.graph import Neo4jAdapter
+                    user = arguments.get("user")
+                    password = arguments.get("password")
+                    database = arguments.get("database")
+                    adapter = Neo4jAdapter(sink_id, connection, user=user, password=password, database=database)
+                    connector.add_sink(adapter)
+                elif sink_type == "age":
+                    from cgc.adapters.graph import AgeAdapter
+                    graph_name = arguments.get("database", "cgc_graph")
+                    adapter = AgeAdapter(sink_id, connection, graph_name=graph_name)
+                    connector.add_sink(adapter)
+                else:
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Unknown sink type: {sink_type}. Use 'neo4j' or 'age'.")]
+                    )
+
+                return CallToolResult(
+                    content=[TextContent(type="text", text=f"Added sink: {sink_id} ({sink_type})")]
+                )
+
+            elif name == "cgc_list_sinks":
+                sinks = connector.sinks
+                if not sinks:
+                    return CallToolResult(
+                        content=[TextContent(type="text", text="No graph sinks connected. Use cgc_add_sink to add one.")]
+                    )
+                return CallToolResult(
+                    content=[TextContent(type="text", text=f"Connected sinks: {', '.join(sinks)}")]
+                )
+
+            elif name == "cgc_remove_sink":
+                sink_id = arguments["sink_id"]
+                if connector.remove_sink(sink_id):
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Removed sink: {sink_id}")]
+                    )
+                return CallToolResult(
+                    content=[TextContent(type="text", text=f"Sink not found: {sink_id}")]
+                )
+
+            elif name == "cgc_sink_stats":
+                sink_id = arguments["sink_id"]
+
+                if not connector.has_sink(sink_id):
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Sink not found: {sink_id}")]
+                    )
+
+                sink = connector.get_sink(sink_id)
+                await sink.connect()
+                stats = await sink.get_stats()
+
+                result = f"Graph Sink: {sink_id}\n\n"
+                result += f"Nodes: {stats.node_count}\n"
+                result += f"Edges: {stats.edge_count}\n"
+                if stats.node_labels:
+                    result += f"Node Labels: {', '.join(stats.node_labels)}\n"
+                if stats.relationship_types:
+                    result += f"Relationship Types: {', '.join(stats.relationship_types)}\n"
+
+                return CallToolResult(
+                    content=[TextContent(type="text", text=result)]
+                )
+
+            elif name == "cgc_sink_query":
+                sink_id = arguments["sink_id"]
+                cypher = arguments["cypher"]
+                graph_name = arguments.get("graph_name")
+
+                if not connector.has_sink(sink_id):
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Sink not found: {sink_id}")]
+                    )
+
+                sink = connector.get_sink(sink_id)
+                await sink.connect()
+                results = await sink.query_graph(cypher, graph_name=graph_name)
+
+                if not results:
+                    return CallToolResult(
+                        content=[TextContent(type="text", text="No results found.")]
+                    )
+
+                return CallToolResult(
+                    content=[TextContent(type="text", text=json.dumps(results, indent=2, default=str))]
+                )
+
+            elif name == "cgc_sink_find":
+                sink_id = arguments["sink_id"]
+                entity = arguments["entity"]
+                graph_name = arguments.get("graph_name")
+                limit = arguments.get("limit", 50)
+
+                if not connector.has_sink(sink_id):
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"Sink not found: {sink_id}")]
+                    )
+
+                sink = connector.get_sink(sink_id)
+                await sink.connect()
+                results = await sink.find_by_entity(entity, graph_name=graph_name, limit=limit)
+
+                if not results:
+                    return CallToolResult(
+                        content=[TextContent(type="text", text=f"No triplets found involving entity: {entity}")]
+                    )
+
+                # Format results as triplets
+                output = f"Triplets involving '{entity}':\n\n"
+                for r in results:
+                    output += f"- {r.get('subject', '?')} --[{r.get('predicate', '?')}]--> {r.get('object', '?')}\n"
+
+                return CallToolResult(
+                    content=[TextContent(type="text", text=output)]
                 )
 
             else:
