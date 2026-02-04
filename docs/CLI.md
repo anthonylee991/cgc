@@ -795,7 +795,7 @@ cgc version
 
 **Output:**
 ```
-CGC (Context Graph Connector) v0.3.0
+CGC (Context Graph Connector) v0.4.0
 ```
 
 ---

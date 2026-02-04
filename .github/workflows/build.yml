@@ -59,14 +59,11 @@ jobs:
             --title "CGC $TAG" \
             --notes "Context Graph Connector release.
 
-          **What's new in v0.3.2:**
-          - **Fix:** cgc_search now works on filesystem sources (SearchQuery support added to FilesystemAdapter)
-          - Windows and Mac README documentation updated with correct paths for bundled distributions
-
-          **v0.3.1:**
-          - Performance fix: Filesystem discovery no longer hangs on large codebases
-          - Default exclusion of node_modules, .git, venv, __pycache__, and 18 other junk directories
-          - Timeout enforcement and entity count cap (5,000) prevent hangs on huge directories
+          **What's new in v0.4.0:**
+          - **Graph Sinks:** Store extracted triplets directly to Neo4j or PostgreSQL AGE
+          - **CLI:** New \`--sink\` and \`--graph\` options for extract commands
+          - **API:** Sink management endpoints (\`/sinks\`, stats, query, find)
+          - **MCP:** 6 new tools for graph sink management (cgc_add_sink, cgc_remove_sink, cgc_list_sinks, cgc_sink_stats, cgc_sink_query, cgc_sink_find)
 
           **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
           **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
@@ -138,6 +135,10 @@ jobs:
             --hidden-import cgc.adapters.base \
             --hidden-import cgc.adapters.sql \
             --hidden-import cgc.adapters.filesystem \
+            --hidden-import cgc.adapters.graph \
+            --hidden-import cgc.adapters.graph.base \
+            --hidden-import cgc.adapters.graph.neo4j \
+            --hidden-import cgc.adapters.graph.age \
             --hidden-import cgc.discovery \
             --hidden-import cgc.discovery.engine \
             --hidden-import cgc.discovery.patterns \
@@ -188,6 +189,10 @@ jobs:
             --hidden-import cgc.adapters.base \
             --hidden-import cgc.adapters.sql \
             --hidden-import cgc.adapters.filesystem \
+            --hidden-import cgc.adapters.graph \
+            --hidden-import cgc.adapters.graph.base \
+            --hidden-import cgc.adapters.graph.neo4j \
+            --hidden-import cgc.adapters.graph.age \
             --hidden-import cgc.discovery \
             --hidden-import cgc.discovery.engine \
             --hidden-import cgc.discovery.patterns \
