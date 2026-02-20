@@ -15,6 +15,30 @@ if TYPE_CHECKING:
 
 from cgc.core.triplet import Triplet
 
+# --- Entity post-filtering constants ---
+
+# Minimum entity text length (shorter is almost always noise)
+MIN_ENTITY_LENGTH = 3
+
+# Regex for entities that are purely numeric values, currency amounts, or references
+# Matches: "389", "1,234", "12.5%", "$500", "€100", "CU 389", etc.
+NUMERIC_PATTERN = re.compile(r'^[\s$€£¥₹CU]*[\d,.\-\s%()]+$')
+
+# Global stopwords: entity texts that are noise in ANY domain
+ENTITY_STOPWORDS = frozenset({
+    # Generic document terms
+    "entity", "entities", "the entity", "item", "items",
+    "note", "notes", "section", "table", "figure", "page",
+    "paragraph", "example", "appendix", "exhibit", "schedule",
+    "total", "subtotal", "grand total", "net", "gross",
+    # Placeholder/null values
+    "n/a", "na", "none", "null", "nil", "tbd", "tbc",
+    # Filler words sometimes extracted as entities
+    "various", "other", "others", "above", "below",
+    "certain", "several", "respective", "applicable",
+    "thereof", "therein", "herein", "hereof",
+})
+
 # --- Garbage entity constants ---
 
 PRONOUNS = frozenset({
@@ -68,11 +92,19 @@ def is_garbage_entity(text: str) -> bool:
     lower = stripped.lower()
 
     # Empty or too short
-    if len(stripped) < 2:
+    if len(stripped) < MIN_ENTITY_LENGTH:
         return True
 
     # Too long
     if len(stripped) > MAX_ENTITY_LENGTH:
+        return True
+
+    # Purely numeric / currency amounts / references
+    if NUMERIC_PATTERN.match(stripped):
+        return True
+
+    # Global stopwords
+    if lower in ENTITY_STOPWORDS:
         return True
 
     # Pronouns

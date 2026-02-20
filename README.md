@@ -77,7 +77,7 @@ CGC works out of the box with a generous free tier. Pro unlocks cloud-powered gr
 | **Graph extraction (text)** | -- | Yes | Yes |
 | **Graph extraction (files)** | -- | Yes | Yes |
 | **Structured extraction (CSV, Excel, JSON)** | -- | Yes | Yes |
-| **Domain detection (11 industry packs)** | -- | Yes | Yes |
+| **Domain detection (17 industry packs)** | -- | Yes | Yes |
 | **Graph sinks (Neo4j, PostgreSQL AGE)** | -- | Yes | Yes |
 | **Cloud-powered extraction (no ML setup)** | -- | -- | Yes |
 

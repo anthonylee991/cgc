@@ -634,19 +634,28 @@ cgc list-packs
 
 **Output:**
 ```
-Available Industry Packs (11):
+Available Industry Packs (17):
 
-  general_business   - General business documents
-  tech_startup       - Technology companies, software, APIs
-  ecommerce_retail   - Shopping, orders, products, pricing
-  legal_corporate    - Legal documents, contracts, governance
-  finance_investment - Financial markets, securities, banking
-  hr_people          - HR, employees, skills, certifications
-  healthcare_medical - Medical records, diagnoses, medications
-  real_estate        - Properties, brokers, transactions
-  supply_chain       - Manufacturing, shipping, procurement
-  research_academic  - Academic papers, grants, journals
-  government_public  - Government agencies, legislation
+  Starter Packs:
+  general_business          - General business documents
+  tech_startup              - Technology companies, software, APIs
+  ecommerce_retail          - Shopping, orders, products, pricing
+  legal_corporate           - Legal documents, contracts, governance
+  finance_investment        - Financial markets, securities, banking
+  hr_people                 - HR, employees, skills, certifications
+  healthcare_medical        - Medical records, diagnoses, medications
+  real_estate               - Properties, brokers, transactions
+  supply_chain              - Manufacturing, shipping, procurement
+  research_academic         - Academic papers, grants, journals
+  government_public         - Government agencies, legislation
+
+  Expansion Packs:
+  accounting_reporting      - Financial statements, IFRS/GAAP, auditing
+  insurance                 - Policies, claims, underwriting, risk
+  manufacturing_engineering - BOMs, specs, quality control
+  marketing_sales           - Campaigns, competitive analysis, pipeline
+  energy_environment        - ESG, sustainability, carbon emissions
+  software_engineering      - Architecture, APIs, microservices, DevOps
 ```
 
 ---
@@ -795,7 +804,7 @@ cgc version
 
 **Output:**
 ```
-CGC (Context Graph Connector) v0.4.0
+CGC (Context Graph Connector) v0.5.0
 ```
 
 ---

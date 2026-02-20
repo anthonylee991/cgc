@@ -588,7 +588,7 @@ See all available domain packs for extraction.
 GET http://localhost:8420/packs
 ```
 
-Returns 11 industry packs: `general_business`, `tech_startup`, `ecommerce_retail`, `legal_corporate`, `finance_investment`, `hr_people`, `healthcare_medical`, `real_estate`, `supply_chain`, `research_academic`, `government_public`.
+Returns 17 industry packs: `general_business`, `tech_startup`, `ecommerce_retail`, `legal_corporate`, `finance_investment`, `hr_people`, `healthcare_medical`, `real_estate`, `supply_chain`, `research_academic`, `government_public`, `accounting_reporting`, `insurance`, `manufacturing_engineering`, `marketing_sales`, `energy_environment`, `software_engineering`.
 
 **What to do with triplets:** Store them yourself OR use the `sink_uri` parameter to automatically store to a graph database.
 

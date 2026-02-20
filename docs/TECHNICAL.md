@@ -173,7 +173,7 @@ CGC uses a multi-stage extraction pipeline:
 
 3. **GliREL** (`jackboyla/glirel-large-v0`) - Relation extraction that uses spaCy tokenization to map entity positions and extract typed relationships between GliNER entities.
 
-4. **E5 Domain Router** (`intfloat/e5-small-v2`) - Classifies text into one of 11 industry packs using semantic similarity, selecting domain-specific entity and relation labels for optimal extraction.
+4. **E5 Domain Router** (`intfloat/e5-small-v2`) - Classifies text into one of 17 industry packs using semantic similarity, selecting domain-specific entity and relation labels for optimal extraction.
 
 5. **Structured Extractor** - Hub-and-spoke model for tabular data. Classifies columns (primary entity, foreign key, timestamp, property) and builds relationships automatically.
 
@@ -181,7 +181,7 @@ CGC uses a multi-stage extraction pipeline:
 
 #### Industry Packs
 
-CGC includes 11 industry-specific label sets for domain-optimized extraction:
+CGC includes 17 industry-specific label sets for domain-optimized extraction:
 
 | Pack | Use Case |
 |------|----------|
@@ -196,6 +196,12 @@ CGC includes 11 industry-specific label sets for domain-optimized extraction:
 | `supply_chain` | Manufacturing, shipping, procurement |
 | `research_academic` | Papers, grants, journals |
 | `government_public` | Agencies, legislation, permits |
+| `accounting_reporting` | Financial statements, IFRS/GAAP, auditing |
+| `insurance` | Policies, claims, underwriting, risk |
+| `manufacturing_engineering` | BOMs, specs, quality control |
+| `marketing_sales` | Campaigns, competitive analysis, pipeline |
+| `energy_environment` | ESG, sustainability, carbon emissions |
+| `software_engineering` | Architecture, APIs, microservices, DevOps |
 
 #### ML Dependencies
 

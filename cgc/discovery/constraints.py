@@ -60,6 +60,32 @@ LABEL_MAPPING: dict[str, str] = {
     # Events
     "meeting": "event",
     "funding_round": "event",
+    "campaign": "event",
+    # Expansion pack: Accounting & Financial Reporting
+    "reporting_entity": "organization",
+    "auditor": "person",
+    "accounting_standard": "regulation",
+    # Expansion pack: Insurance
+    "insurer": "organization",
+    "policyholder": "person",
+    "beneficiary": "person",
+    "adjuster": "person",
+    "premium": "money",
+    "deductible": "money",
+    # Expansion pack: Manufacturing & Engineering
+    "quality_standard": "regulation",
+    # Expansion pack: Marketing & Sales
+    "competitor": "organization",
+    "pricing_tier": "money",
+    # Expansion pack: Energy & Environment
+    "facility": "location",
+    "environmental_regulation": "regulation",
+    # Expansion pack: Software Engineering
+    "service": "technology",
+    "microservice": "technology",
+    "endpoint": "technology",
+    "database": "technology",
+    "dependency": "technology",
 }
 
 
@@ -111,6 +137,66 @@ PREDICATE_NORMALIZATION: dict[str, str] = {
     "shipped to": "SHIPPED_TO",
     "sold by": "SOLD_BY",
     "paid": "PAID",
+    # Accounting & Financial Reporting
+    "reported in": "REPORTED_IN",
+    "consolidates": "CONSOLIDATES",
+    "recognized under": "RECOGNIZED_UNDER",
+    "component of": "COMPONENT_OF",
+    "measured at": "MEASURED_AT",
+    "denominated in": "DENOMINATED_IN",
+    "audited by": "AUDITED_BY",
+    "for period": "FOR_PERIOD",
+    # Insurance
+    "insured by": "INSURED_BY",
+    "covers": "COVERS",
+    "filed by": "FILED_BY",
+    "excludes": "EXCLUDES",
+    "underwritten by": "UNDERWRITTEN_BY",
+    "claimed against": "CLAIMED_AGAINST",
+    "beneficiary of": "BENEFICIARY_OF",
+    "adjusts": "ADJUSTS",
+    "reinsured by": "REINSURED_BY",
+    # Manufacturing & Engineering
+    "manufactured by": "MANUFACTURED_BY",
+    "meets standard": "MEETS_STANDARD",
+    "tested with": "TESTED_WITH",
+    "specified as": "SPECIFIED_AS",
+    "supplied by": "SUPPLIED_BY",
+    "assembled in": "ASSEMBLED_IN",
+    "made from": "MADE_FROM",
+    "produces": "PRODUCES",
+    "inspected by": "INSPECTED_BY",
+    # Marketing & Sales
+    "targets": "TARGETS",
+    "outperforms": "OUTPERFORMS",
+    "distributed through": "DISTRIBUTED_THROUGH",
+    "sponsors": "SPONSORS",
+    "positions against": "POSITIONS_AGAINST",
+    "launched in": "LAUNCHED_IN",
+    # Energy & Environment
+    "emits": "EMITS",
+    "complies with": "COMPLIES_WITH",
+    "targets reduction of": "TARGETS_REDUCTION_OF",
+    "generates": "GENERATES",
+    "certified by": "CERTIFIED_BY",
+    "operates": "OPERATES",
+    "monitors": "MONITORS",
+    "regulated by": "REGULATED_BY",
+    "funded by": "FUNDED_BY",
+    # Software Engineering
+    "depends on": "DEPENDS_ON",
+    "implements": "IMPLEMENTS",
+    "extends": "EXTENDS",
+    "calls": "CALLS",
+    "deployed to": "DEPLOYED_TO",
+    "written in": "WRITTEN_IN",
+    "exposes": "EXPOSES",
+    "consumes": "CONSUMES",
+    "migrated from": "MIGRATED_FROM",
+    "replaces": "REPLACES",
+    "compatible with": "COMPATIBLE_WITH",
+    "vulnerable to": "VULNERABLE_TO",
+    "maintains": "MAINTAINS",
 }
 
 
@@ -164,6 +250,60 @@ SEMANTIC_CONSTRAINTS: dict[str, tuple[set[str] | None, set[str] | None]] = {
     # Policy/Governance
     "governs": ({"policy", "regulation"}, {"department", "organization", "process"}),
     "applies to": ({"policy", "regulation"}, {"person", "organization", "department"}),
+    # Accounting & Financial Reporting
+    "reported in": ({"line_item", "asset", "liability", "equity_component"}, {"financial_statement"}),
+    "consolidates": ({"reporting_entity", "company"}, {"reporting_entity", "company"}),
+    "recognized under": ({"asset", "liability", "line_item"}, {"accounting_standard"}),
+    "component of": ({"line_item", "asset", "liability"}, {"line_item", "financial_statement"}),
+    "measured at": ({"asset", "liability"}, {"accounting_policy", "money"}),
+    "denominated in": ({"money", "asset", "liability"}, {"currency"}),
+    "audited by": ({"reporting_entity", "company"}, {"auditor", "company", "person"}),
+    "for period": ({"financial_statement", "reporting_entity"}, {"reporting_period", "date"}),
+    # Insurance
+    "insured by": ({"policyholder", "person", "company"}, {"insurer", "company"}),
+    "covers": ({"policy", "coverage_type"}, {"peril", "person", "company", "policyholder"}),
+    "filed by": ({"claim"}, {"policyholder", "person", "company"}),
+    "excludes": ({"policy", "coverage_type"}, {"exclusion", "peril"}),
+    "underwritten by": ({"policy"}, {"insurer", "company", "person"}),
+    "claimed against": ({"claim"}, {"policy", "insurer", "company"}),
+    "beneficiary of": ({"beneficiary", "person"}, {"policy"}),
+    "reinsured by": ({"insurer", "company"}, {"insurer", "company"}),
+    # Manufacturing & Engineering
+    "meets standard": ({"part", "assembly", "process", "material"}, {"quality_standard", "specification"}),
+    "tested with": ({"part", "assembly", "material"}, {"measurement", "process", "machine"}),
+    "specified as": ({"part", "material", "tolerance"}, {"specification", "measurement"}),
+    "assembled in": ({"part", "assembly"}, {"machine", "location", "company"}),
+    "made from": ({"part", "assembly"}, {"material"}),
+    "produces": ({"machine", "process", "company"}, {"part", "assembly", "defect"}),
+    "inspected by": ({"part", "assembly"}, {"person", "company"}),
+    # Marketing & Sales
+    "targets": ({"campaign", "brand", "company"}, {"target_audience", "market_segment"}),
+    "outperforms": ({"brand", "company", "product"}, {"competitor", "brand", "company", "product"}),
+    "distributed through": ({"product", "brand"}, {"channel", "company"}),
+    "sponsors": ({"company", "brand"}, {"campaign", "person", "event"}),
+    "positions against": ({"brand", "company", "product"}, {"competitor", "brand", "company", "product"}),
+    # Energy & Environment
+    "emits": ({"facility", "company", "process"}, {"emission", "pollutant"}),
+    "complies with": ({"facility", "company"}, {"environmental_regulation"}),
+    "targets reduction of": ({"company", "facility"}, {"emission", "pollutant", "target"}),
+    "generates": ({"facility", "energy_source", "renewable_source"}, {"emission", "energy_source", "money"}),
+    "certified by": ({"facility", "company"}, {"company", "person"}),
+    "operates": ({"company", "person"}, {"facility", "energy_source", "renewable_source"}),
+    "monitors": ({"company", "person", "facility"}, {"emission", "metric", "pollutant"}),
+    "regulated by": ({"facility", "company", "emission"}, {"environmental_regulation", "company"}),
+    # Software Engineering
+    "depends on": ({"service", "microservice", "library", "repository"}, {"library", "dependency", "framework", "service"}),
+    "implements": ({"service", "microservice", "library"}, {"api", "protocol", "architecture_pattern"}),
+    "extends": ({"service", "microservice", "library"}, {"library", "framework", "api"}),
+    "calls": ({"service", "microservice", "endpoint"}, {"service", "microservice", "endpoint", "api"}),
+    "deployed to": ({"service", "microservice", "repository"}, {"environment"}),
+    "written in": ({"service", "microservice", "library", "repository"}, {"programming_language"}),
+    "exposes": ({"service", "microservice"}, {"endpoint", "api"}),
+    "consumes": ({"service", "microservice"}, {"api", "endpoint", "service"}),
+    "migrated from": ({"service", "microservice", "database"}, {"service", "database", "framework"}),
+    "replaces": ({"service", "microservice", "library"}, {"service", "microservice", "library"}),
+    "compatible with": ({"library", "framework", "service"}, {"library", "framework", "version"}),
+    "vulnerable to": ({"service", "library", "dependency"}, {"vulnerability"}),
 }
 
 # Entity types that should never be relation subjects

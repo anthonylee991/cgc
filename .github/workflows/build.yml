@@ -59,11 +59,10 @@ jobs:
             --title "CGC $TAG" \
             --notes "Context Graph Connector release.
 
-          **What's new in v0.4.0:**
-          - **Graph Sinks:** Store extracted triplets directly to Neo4j or PostgreSQL AGE
-          - **CLI:** New \`--sink\` and \`--graph\` options for extract commands
-          - **API:** Sink management endpoints (\`/sinks\`, stats, query, find)
-          - **MCP:** 6 new tools for graph sink management (cgc_add_sink, cgc_remove_sink, cgc_list_sinks, cgc_sink_stats, cgc_sink_query, cgc_sink_find)
+          **What's new in v0.5.0:**
+          - **17 Industry Packs:** Added 6 expansion packs — Accounting & Financial Reporting, Insurance, Manufacturing & Engineering, Marketing & Sales, Energy & Environment, Software Engineering
+          - **Enhanced Constraints:** 91 predicate normalizations, 72 semantic constraints, 59 label mappings for higher-quality extraction
+          - **Improved Filtering:** Stricter entity post-filtering (min length 3, numeric/currency detection, 30+ stopwords)
 
           **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
           **macOS Intel:** Download \`cgc-mac-x86_64.zip\`

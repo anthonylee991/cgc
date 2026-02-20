@@ -84,10 +84,11 @@ CGC (Context Graph Connector) connects AI assistants to your databases, files, a
 - Hub-and-spoke model converts rows into graph triplets
 - Automatic column-to-relationship mapping
 
-**11 industry packs**
+**17 industry packs**
 - Optimized entity and relation labels for specific domains
 - Automatic domain detection using E5 embeddings
-- Packs: tech/startup, e-commerce, legal, finance, HR, healthcare, real estate, supply chain, research, government, general business
+- Starter packs: general business, tech/startup, e-commerce, legal, finance, HR, healthcare, real estate, supply chain, research, government
+- Expansion packs: accounting & financial reporting, insurance, manufacturing & engineering, marketing & sales, energy & environment, software engineering
 
 **50+ extraction patterns**
 - High-precision regex patterns for common relationships
@@ -118,7 +119,7 @@ CGC (Context Graph Connector) connects AI assistants to your databases, files, a
 ### Trial (automatic, 14 days)
 - Everything in Free
 - Full graph extraction access
-- All 11 industry packs
+- All 17 industry packs
 - Runs locally on your machine
 
 ### Pro ($X/month or one-time)
@@ -141,7 +142,7 @@ CGC (Context Graph Connector) connects AI assistants to your databases, files, a
 
 5. **Cloud extraction** -- Pro users get graph extraction without installing PyTorch, spaCy, or any ML dependencies. Just activate and extract.
 
-6. **Industry-aware** -- 11 domain-specific extraction packs that understand the entities and relationships in your industry.
+6. **Industry-aware** -- 17 domain-specific extraction packs that understand the entities and relationships in your industry.
 
 7. **Works offline** -- Context extension features run entirely on your machine. Your data never leaves unless you use cloud extraction.
 

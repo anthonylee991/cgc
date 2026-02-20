@@ -259,9 +259,149 @@ GOVERNMENT_PUBLIC = IndustryPack(
     ],
 )
 
+
+# --- Expansion packs ---
+
+ACCOUNTING_REPORTING = IndustryPack(
+    id="accounting_reporting",
+    name="Accounting & Financial Reporting",
+    description="Financial statements, accounting standards, auditing, IFRS, GAAP, consolidation, balance sheet, income statement",
+    examples=[
+        "consolidated statement of financial position", "balance sheet",
+        "income statement", "cash flow statement", "IFRS", "GAAP",
+        "depreciation", "amortization", "goodwill impairment",
+        "notes to financial statements", "audit opinion", "retained earnings",
+        "deferred tax", "lease liability", "right-of-use asset",
+    ],
+    entity_labels=[
+        "reporting_entity", "financial_statement", "line_item", "asset",
+        "liability", "equity_component", "accounting_standard",
+        "reporting_period", "currency", "auditor", "money",
+        "accounting_policy", "person", "company", "date",
+    ],
+    relation_labels=[
+        "reported in", "subsidiary of", "consolidates", "recognized under",
+        "component of", "measured at", "denominated in", "audited by",
+        "for period", "located in", "owns", "manages",
+    ],
+)
+
+INSURANCE = IndustryPack(
+    id="insurance",
+    name="Insurance",
+    description="Insurance policies, claims processing, underwriting, risk assessment, actuarial analysis",
+    examples=[
+        "insurance policy", "premium calculation", "claim filed",
+        "underwriting criteria", "actuarial table", "deductible",
+        "coverage limit", "beneficiary", "risk assessment",
+        "reinsurance", "loss ratio", "policyholder",
+    ],
+    entity_labels=[
+        "policyholder", "insurer", "claim", "policy", "coverage_type",
+        "premium", "deductible", "beneficiary", "adjuster", "risk_class",
+        "peril", "exclusion", "person", "company", "money", "date",
+    ],
+    relation_labels=[
+        "insured by", "covers", "filed by", "excludes", "underwritten by",
+        "claimed against", "beneficiary of", "adjusts", "reinsured by",
+        "applies to", "located in", "owns",
+    ],
+)
+
+MANUFACTURING_ENGINEERING = IndustryPack(
+    id="manufacturing_engineering",
+    name="Manufacturing & Engineering",
+    description="Product manufacturing, engineering specifications, quality control, industrial processes, BOM",
+    examples=[
+        "bill of materials", "engineering specification", "quality control",
+        "ISO 9001", "tolerance", "assembly line", "CAD drawing",
+        "material properties", "manufacturing process", "defect rate",
+        "standard operating procedure", "production run", "machining",
+    ],
+    entity_labels=[
+        "part", "assembly", "specification", "material", "process",
+        "machine", "quality_standard", "tolerance", "supplier", "defect",
+        "measurement", "person", "company", "location", "date",
+    ],
+    relation_labels=[
+        "component of", "manufactured by", "meets standard", "tested with",
+        "specified as", "supplied by", "assembled in", "made from",
+        "produces", "inspected by", "located in", "owns",
+    ],
+)
+
+MARKETING_SALES = IndustryPack(
+    id="marketing_sales",
+    name="Marketing & Sales",
+    description="Marketing strategy, sales pipeline, competitive analysis, market research, campaigns, branding",
+    examples=[
+        "marketing campaign", "target audience", "market share",
+        "competitive analysis", "brand positioning", "sales pipeline",
+        "conversion rate", "customer acquisition", "go-to-market strategy",
+        "market segment", "pricing strategy", "lead generation",
+    ],
+    entity_labels=[
+        "brand", "campaign", "channel", "competitor", "market_segment",
+        "target_audience", "kpi", "metric", "feature", "pricing_tier",
+        "person", "company", "product", "location", "date", "money",
+    ],
+    relation_labels=[
+        "competes with", "targets", "outperforms", "priced at",
+        "launched in", "distributed through", "acquired", "sponsors",
+        "positions against", "leads", "located in", "owns",
+    ],
+)
+
+ENERGY_ENVIRONMENT = IndustryPack(
+    id="energy_environment",
+    name="Energy & Environment",
+    description="Energy production, environmental compliance, sustainability, ESG reporting, carbon emissions, renewables",
+    examples=[
+        "carbon emissions", "sustainability report", "ESG score",
+        "renewable energy", "solar panel", "wind farm", "carbon footprint",
+        "environmental impact assessment", "greenhouse gas", "net zero",
+        "energy audit", "waste management", "regulatory compliance",
+    ],
+    entity_labels=[
+        "emission", "energy_source", "facility", "environmental_regulation",
+        "metric", "target", "carbon_credit", "pollutant", "renewable_source",
+        "person", "company", "location", "date", "money",
+    ],
+    relation_labels=[
+        "emits", "complies with", "targets reduction of", "generates",
+        "certified by", "located in", "operates", "monitors",
+        "regulated by", "funded by", "owns", "manages",
+    ],
+)
+
+SOFTWARE_ENGINEERING = IndustryPack(
+    id="software_engineering",
+    name="Software Engineering",
+    description="Software architecture, API design, microservices, databases, DevOps, code, deployments, dependencies",
+    examples=[
+        "microservice architecture", "REST API endpoint", "database schema",
+        "CI/CD pipeline", "deployment", "Docker container", "Kubernetes",
+        "code review", "pull request", "migration", "dependency",
+        "incident postmortem", "load balancer", "message queue",
+    ],
+    entity_labels=[
+        "service", "microservice", "api", "endpoint", "database",
+        "repository", "library", "dependency", "framework",
+        "programming_language", "architecture_pattern", "protocol",
+        "version", "environment", "vulnerability", "person", "company",
+    ],
+    relation_labels=[
+        "depends on", "implements", "extends", "calls", "deployed to",
+        "written in", "exposes", "consumes", "migrated from", "replaces",
+        "compatible with", "vulnerable to", "developed by", "maintains",
+    ],
+)
+
+
 # --- Registry ---
 
 ALL_PACKS: list[IndustryPack] = [
+    # Starter packs
     GENERAL_BUSINESS,
     TECH_STARTUP,
     ECOMMERCE_RETAIL,
@@ -273,6 +413,13 @@ ALL_PACKS: list[IndustryPack] = [
     SUPPLY_CHAIN,
     RESEARCH_ACADEMIC,
     GOVERNMENT_PUBLIC,
+    # Expansion packs
+    ACCOUNTING_REPORTING,
+    INSURANCE,
+    MANUFACTURING_ENGINEERING,
+    MARKETING_SALES,
+    ENERGY_ENVIRONMENT,
+    SOFTWARE_ENGINEERING,
 ]
 
 PACK_REGISTRY: dict[str, IndustryPack] = {pack.id: pack for pack in ALL_PACKS}
