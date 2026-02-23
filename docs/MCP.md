@@ -123,49 +123,47 @@ Claude should respond with a list of available tools like `cgc_add_source`, `cgc
 
 Claude Code is the VS Code extension for using Claude in your editor.
 
-### Step 1: Locate the MCP Settings
+> **Important:** Claude Code in VS Code does **not** recognize manually edited config files. You **must** register MCP servers using the CLI command below.
 
-The settings file is located at:
+### Step 1: Register CGC via the CLI
 
-**Windows:**
-```
-C:\Users\YourName\.claude\settings.json
-```
-
-**Mac/Linux:**
-```
-~/.claude/settings.json
-```
-
-### Step 2: Edit the Settings
+Open a terminal and run:
 
 **Using the Executable:**
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "C:\\Users\\John\\Tools\\cgc_mcp.exe",
-      "args": []
-    }
-  }
-}
+```
+claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"
 ```
 
-**Using Python:**
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "python",
-      "args": ["-m", "cgc.mcp.server"]
-    }
-  }
-}
+**Using Python (if installed via pip):**
+```
+claude mcp add cgc -s global -- python -m cgc.mcp.server
 ```
 
-### Step 3: Restart VS Code
+Replace the path with the actual location of your `cgc_mcp.exe`.
+
+**Example (Windows):**
+```
+claude mcp add cgc -s global -- "C:\Users\John\Tools\cgc_mcp.exe"
+```
+
+**Example (Mac):**
+```
+claude mcp add cgc -s global -- /Users/john/tools/cgc_mcp
+```
+
+### Step 2: Restart VS Code
 
 Close and reopen VS Code for the changes to take effect.
+
+### Step 3: Verify Connection
+
+Type `/mcp` in Claude Code. You should see `cgc` listed as connected.
+
+### Managing the Server
+
+To remove: `claude mcp remove cgc -s global`
+
+To check what's registered: `claude mcp list`
 
 ---
 
@@ -291,34 +289,17 @@ Completely quit and restart Windsurf for the configuration to load.
 
 Cline is a VS Code extension for AI-assisted coding with MCP support.
 
-### Step 1: Locate the Config File
+### Step 1: Register CGC
 
-Cline uses the same MCP config location as Claude Code:
+If you also use Claude Code, CGC is already registered (see above). Otherwise, use the Claude Code CLI:
 
-**Windows:**
 ```
-%USERPROFILE%\.claude\settings.json
-```
-
-**Mac/Linux:**
-```
-~/.claude/settings.json
+claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"
 ```
 
-### Step 2: Edit the Config File
+> **Note:** Do not manually edit `~/.claude/settings.json` — changes made by hand are not recognized by VS Code extensions. Always use the CLI command.
 
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "C:\\path\\to\\cgc_mcp.exe",
-      "args": []
-    }
-  }
-}
-```
-
-### Step 3: Restart VS Code
+### Step 2: Restart VS Code
 
 Close and reopen VS Code for the changes to take effect.
 
@@ -666,23 +647,26 @@ Claude doesn't see the CGC tools.
 
 **Solutions:**
 
-1. **Check the config file path**
-   - Make sure you're editing the correct file
+1. **Claude Code / Cline: use the CLI, not manual edits**
+   - VS Code extensions do **not** detect hand-edited config files
+   - Run: `claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"`
+   - Then restart VS Code
+
+2. **Claude Desktop / Cursor / Windsurf: check the config file path**
    - Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac)
-   - Claude Code / Cline: `~/.claude/settings.json`
    - Cursor: `~/.cursor/mcp.json`
    - Windsurf: `~/.codeium/windsurf/mcp_config.json`
 
-2. **Check the executable path**
+3. **Check the executable path**
    - Use the full path to cgc_mcp.exe
-   - Use double backslashes in Windows paths: `C:\\Users\\...`
+   - Use double backslashes in Windows JSON paths: `C:\\Users\\...`
    - Args should be empty: `[]`
 
-3. **Restart the application**
+4. **Restart the application**
    - Close completely (check system tray)
    - Reopen
 
-4. **Check for JSON errors**
+5. **Check for JSON errors**
    - Make sure your config file is valid JSON
    - Watch for missing commas or brackets
 

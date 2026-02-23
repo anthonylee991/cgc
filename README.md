@@ -316,8 +316,14 @@ Then make requests to `http://localhost:8420`
 
 Best for: Direct integration with Claude Desktop or Claude Code
 
-Use `cgc_mcp.exe` (a lightweight, fast-starting executable) for MCP integration. Add it to your Claude settings and Claude can use your data directly.
+Use `cgc_mcp.exe` (a lightweight, fast-starting executable) for MCP integration.
 
+**Claude Code (VS Code):** Register via CLI (do not edit config files manually):
+```
+claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"
+```
+
+**Claude Desktop / Cursor / Windsurf:** Add to your config file:
 ```json
 {
   "mcpServers": {
