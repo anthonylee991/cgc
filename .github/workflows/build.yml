@@ -59,10 +59,10 @@ jobs:
             --title "CGC $TAG" \
             --notes "Context Graph Connector release.
 
-          **What's new in v0.5.0:**
-          - **17 Industry Packs:** Added 6 expansion packs — Accounting & Financial Reporting, Insurance, Manufacturing & Engineering, Marketing & Sales, Energy & Environment, Software Engineering
+          **What's new in v0.5.1:**
+          - **KuzuDB Graph Sink:** Added KuzuDB as an embedded graph database option — no server required, just a local directory path. Full Cypher query support. Graph sinks now include Neo4j, PostgreSQL AGE, and KuzuDB.
+          - **17 Industry Packs:** 6 expansion packs added in v0.5.0 — Accounting & Financial Reporting, Insurance, Manufacturing & Engineering, Marketing & Sales, Energy & Environment, Software Engineering
           - **Enhanced Constraints:** 91 predicate normalizations, 72 semantic constraints, 59 label mappings for higher-quality extraction
-          - **Improved Filtering:** Stricter entity post-filtering (min length 3, numeric/currency detection, 30+ stopwords)
 
           **macOS Apple Silicon (M1-M4):** Download \`cgc-mac-aarch64.zip\`
           **macOS Intel:** Download \`cgc-mac-x86_64.zip\`
@@ -138,6 +138,7 @@ jobs:
             --hidden-import cgc.adapters.graph.base \
             --hidden-import cgc.adapters.graph.neo4j \
             --hidden-import cgc.adapters.graph.age \
+            --hidden-import cgc.adapters.graph.kuzudb \
             --hidden-import cgc.discovery \
             --hidden-import cgc.discovery.engine \
             --hidden-import cgc.discovery.patterns \
@@ -192,6 +193,7 @@ jobs:
             --hidden-import cgc.adapters.graph.base \
             --hidden-import cgc.adapters.graph.neo4j \
             --hidden-import cgc.adapters.graph.age \
+            --hidden-import cgc.adapters.graph.kuzudb \
             --hidden-import cgc.discovery \
             --hidden-import cgc.discovery.engine \
             --hidden-import cgc.discovery.patterns \

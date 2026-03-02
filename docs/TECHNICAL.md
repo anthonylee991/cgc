@@ -570,6 +570,14 @@ Each data source type has an "adapter" that knows how to connect and query it:
 - **PgVectorAdapter** - PostgreSQL with pgvector
 - **MongoVectorAdapter** - MongoDB Atlas
 
+#### Graph Sink Adapters
+
+Graph sinks store extracted triplets as nodes and relationships:
+
+- **Neo4jAdapter** - Neo4j graph database (server-based)
+- **AgeAdapter** - PostgreSQL with Apache AGE extension (server-based)
+- **KuzudbAdapter** - KuzuDB embedded graph database (no server required, local directory)
+
 ### Connector
 
 The main coordinator that:

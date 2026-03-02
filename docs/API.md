@@ -474,7 +474,7 @@ POST http://localhost:8420/extract/triplets
 | `text` | string | required | Text to extract from |
 | `use_gliner` | boolean | `true` | Use GliNER ML model (higher recall). Set `false` for pattern-only extraction. |
 | `domain` | string | `null` | Force an industry pack (e.g., `"tech_startup"`, `"healthcare_medical"`). `null` for auto-detection. |
-| `sink_uri` | string | `null` | Store triplets to a graph database. Supports `neo4j://`, `age://`, or `postgresql://` URIs. |
+| `sink_uri` | string | `null` | Store triplets to a graph database. Supports `neo4j://`, `age://`, `postgresql://`, or `kuzudb://` URIs. |
 | `graph_name` | string | `null` | Graph name for AGE sinks. |
 
 Returns:
@@ -621,6 +621,7 @@ POST http://localhost:8420/sinks
 **Sink types:**
 - `neo4j` - Neo4j graph database (requires `user`, `password`)
 - `age` - PostgreSQL with Apache AGE extension (requires `graph_name`)
+- `kuzudb` - Embedded graph database, no server required (connection = directory path)
 
 **AGE Example:**
 ```
@@ -632,6 +633,16 @@ POST http://localhost:8420/sinks
   "options": {
     "graph_name": "company_graph"
   }
+}
+```
+
+**KuzuDB Example (embedded, no server):**
+```
+POST http://localhost:8420/sinks
+{
+  "sink_id": "local_graph",
+  "sink_type": "kuzudb",
+  "connection": "./my_graph_db"
 }
 ```
 

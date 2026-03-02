@@ -488,7 +488,7 @@ def extract(
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
     local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
-    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink to store triplets (neo4j://host:port or age://connstr)"),
+    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
     graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets (relationships) from text.
@@ -499,6 +499,7 @@ def extract(
     Use --sink to store triplets directly in a graph database:
       - Neo4j: --sink neo4j://user:pass@localhost:7687
       - PostgreSQL AGE: --sink age://user:pass@localhost:5432/dbname
+      - KuzuDB: --sink kuzudb://./my_graph_db
 
     Examples:
         cgc extract "Apple was founded by Steve Jobs in California"
@@ -506,6 +507,7 @@ def extract(
         cgc extract "Elon Musk founded SpaceX" --domain tech_startup
         cgc extract "some text" --local
         cgc extract "Steve Jobs founded Apple" --sink neo4j://neo4j:password@localhost:7687
+        cgc extract "Steve Jobs founded Apple" --sink kuzudb://./my_graph
     """
     from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
 
@@ -563,7 +565,7 @@ def extract_file(
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for unstructured extraction"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
     local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
-    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink to store triplets (neo4j://host:port or age://connstr)"),
+    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
     graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets from a file.
@@ -575,6 +577,7 @@ def extract_file(
     Use --sink to store triplets directly in a graph database:
       - Neo4j: --sink neo4j://user:pass@localhost:7687
       - PostgreSQL AGE: --sink age://user:pass@localhost:5432/dbname
+      - KuzuDB: --sink kuzudb://./my_graph_db
 
     Examples:
         cgc extract-file ./report.txt
@@ -583,6 +586,7 @@ def extract_file(
         cgc extract-file ./inventory.xlsx
         cgc extract-file ./data.csv --local
         cgc extract-file ./data.csv --sink neo4j://neo4j:password@localhost:7687
+        cgc extract-file ./data.csv --sink kuzudb://./my_graph
     """
     from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
 
@@ -702,6 +706,7 @@ def _store_to_sink(triplets: list, sink_uri: str, graph_name: Optional[str] = No
     Supported URI formats:
       - neo4j://user:pass@host:port[/database]
       - age://user:pass@host:port/database[?graph=name]
+      - kuzudb://path/to/dir
     """
     from urllib.parse import urlparse, parse_qs
 
@@ -742,9 +747,22 @@ def _store_to_sink(triplets: list, sink_uri: str, graph_name: Optional[str] = No
 
             console.print(f"[dim]Connecting to PostgreSQL AGE at {parsed.hostname}...[/dim]")
 
+        elif scheme == "kuzudb":
+            from cgc.adapters.graph.kuzudb import KuzudbAdapter
+
+            # Extract path: kuzudb://./relative or kuzudb:///absolute
+            path = parsed.netloc + parsed.path if parsed.netloc else parsed.path
+            if not path:
+                console.print("[red]KuzuDB URI requires a directory path: kuzudb://./my_graph[/red]")
+                raise typer.Exit(1)
+
+            sink = KuzudbAdapter("cli_sink", path)
+
+            console.print(f"[dim]Opening KuzuDB at {path}...[/dim]")
+
         else:
             console.print(f"[red]Unknown sink scheme: {scheme}[/red]")
-            console.print("Supported: neo4j://, age://, postgresql://")
+            console.print("Supported: neo4j://, age://, postgresql://, kuzudb://")
             raise typer.Exit(1)
 
         try:

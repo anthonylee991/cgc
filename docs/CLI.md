@@ -444,7 +444,7 @@ cgc extract "<text>" [options]
 | `--domain` or `-d` | Force an industry pack (e.g., `tech_startup`) | Auto-detect |
 | `--output` or `-o` | Save results to a JSON file | Display in terminal |
 | `--local` or `-l` | Force local extraction instead of cloud relay | Off (uses cloud for Pro) |
-| `--sink` or `-s` | Store triplets to a graph database (Neo4j or AGE) | None |
+| `--sink` or `-s` | Store triplets to a graph database (Neo4j, AGE, or KuzuDB) | None |
 | `--graph` or `-g` | Graph name for storage (AGE only) | `cgc_graph` |
 
 **Examples:**
@@ -482,6 +482,11 @@ cgc extract "John works at Apple" --sink neo4j://neo4j:password@localhost:7687
 **Store to PostgreSQL with Apache AGE:**
 ```
 cgc extract "John works at Apple" --sink postgresql://user:pass@localhost:5432/mydb --graph company_graph
+```
+
+**Store to KuzuDB (embedded, no server):**
+```
+cgc extract "John works at Apple" --sink kuzudb://./my_graph_db
 ```
 
 **Output:**
@@ -526,7 +531,7 @@ cgc extract-file <file_path> [options]
 | `--domain` or `-d` | Force an industry pack | Auto-detect |
 | `--output` or `-o` | Save results to a JSON file | Display in terminal |
 | `--local` or `-l` | Force local extraction | Off (uses cloud for Pro) |
-| `--sink` or `-s` | Store triplets to a graph database (Neo4j or AGE) | None |
+| `--sink` or `-s` | Store triplets to a graph database (Neo4j, AGE, or KuzuDB) | None |
 | `--graph` or `-g` | Graph name for storage (AGE only) | `cgc_graph` |
 
 **Examples:**
@@ -564,6 +569,11 @@ cgc extract-file employees.csv --sink neo4j://neo4j:password@localhost:7687
 **Extract and store to PostgreSQL AGE:**
 ```
 cgc extract-file contracts.pdf --sink postgresql://user:pass@localhost/db --graph legal_graph
+```
+
+**Extract and store to KuzuDB (embedded):**
+```
+cgc extract-file contracts.pdf --sink kuzudb://./my_graph_db
 ```
 
 **Output (structured file):**
@@ -804,7 +814,7 @@ cgc version
 
 **Output:**
 ```
-CGC (Context Graph Connector) v0.5.0
+CGC (Context Graph Connector) v0.5.1
 ```
 
 ---

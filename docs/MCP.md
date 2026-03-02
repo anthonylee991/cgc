@@ -365,7 +365,7 @@ These tools let you manage and query graph databases where extracted triplets ar
 
 | Tool | What it does |
 |------|--------------|
-| `cgc_add_sink` | Connect a graph database (Neo4j or PostgreSQL AGE) |
+| `cgc_add_sink` | Connect a graph database (Neo4j, PostgreSQL AGE, or KuzuDB) |
 | `cgc_remove_sink` | Disconnect a graph sink |
 | `cgc_list_sinks` | See all connected graph sinks |
 | `cgc_sink_stats` | Get node/edge counts from a graph sink |
@@ -380,13 +380,13 @@ Most MCP tools are available on the free tier. The MCP server provides context e
 
 **Graph extraction** (converting text into knowledge graph triplets) is available via the CLI (`cgc extract`, `cgc extract-file`) or the HTTP API (`POST /extract/*`). Extraction requires an active trial or Pro license.
 
-**Graph sink management** (connecting to Neo4j/AGE, querying the graph) is available via MCP, but requires extracted data. Use CLI or API to extract, then explore the results via MCP.
+**Graph sink management** (connecting to Neo4j/AGE/KuzuDB, querying the graph) is available via MCP, but requires extracted data. Use CLI or API to extract, then explore the results via MCP.
 
 | MCP (all tiers) | MCP (Pro - after extraction) | CLI/API (Trial/Pro only) |
 |------------------|------------------------------|--------------------------|
 | Connect to data sources | Connect graph sinks | Extract triplets from text |
 | Discover schemas | Query graph with Cypher | Extract from files |
-| Sample data | Find entities in graph | Store to Neo4j / AGE |
+| Sample data | Find entities in graph | Store to Neo4j / AGE / KuzuDB |
 | Run SQL queries | Get graph statistics | Chunk-then-extract |
 | Search text patterns | | Domain detection |
 | Chunk large files | | Industry pack routing |

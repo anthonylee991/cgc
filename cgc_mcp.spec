@@ -23,11 +23,12 @@ a = Analysis(
         'cgc.adapters.base',
         'cgc.adapters.sql',
         'cgc.adapters.filesystem',
-        # Graph adapters (v0.4.0)
+        # Graph adapters (v0.4.0+)
         'cgc.adapters.graph',
         'cgc.adapters.graph.base',
         'cgc.adapters.graph.neo4j',
         'cgc.adapters.graph.age',
+        'cgc.adapters.graph.kuzudb',
         # Discovery modules (v0.2.0) — pattern-only extraction
         'cgc.discovery',
         'cgc.discovery.engine',

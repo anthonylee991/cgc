@@ -105,8 +105,8 @@ class ChunkedExtractionRequest(BaseModel):
 class SinkConfig(BaseModel):
     """Configuration for adding a graph sink."""
     sink_id: str
-    sink_type: str  # neo4j or age
-    connection: str  # connection string or URI
+    sink_type: str  # neo4j, age, or kuzudb
+    connection: str  # connection string, URI, or directory path (kuzudb)
     options: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -329,6 +329,7 @@ async def add_sink(config: SinkConfig):
     Supported sink types:
     - neo4j: Neo4j graph database
     - age: PostgreSQL with Apache AGE extension
+    - kuzudb: Embedded graph database (no server required)
     """
     check_pro_license()
     connector = get_connector()
@@ -349,8 +350,12 @@ async def add_sink(config: SinkConfig):
             graph_name = config.options.get("graph_name", "cgc_graph")
             adapter = AgeAdapter(config.sink_id, config.connection, graph_name=graph_name)
             connector.add_sink(adapter)
+        elif config.sink_type == "kuzudb":
+            from cgc.adapters.graph import KuzudbAdapter
+            adapter = KuzudbAdapter(config.sink_id, config.connection)
+            connector.add_sink(adapter)
         else:
-            raise HTTPException(400, f"Unknown sink type: {config.sink_type}. Supported: neo4j, age")
+            raise HTTPException(400, f"Unknown sink type: {config.sink_type}. Supported: neo4j, age, kuzudb")
 
         return {"status": "added", "sink_id": config.sink_id}
     except Exception as e:
@@ -468,6 +473,7 @@ async def _store_to_sink_uri(triplets: list, sink_uri: str, graph_name: str | No
     - neo4j+s://user:pass@host:port/database (TLS)
     - age://user:pass@host:port/database
     - postgresql://... (treated as AGE)
+    - kuzudb:///path/to/dir (embedded graph database)
     """
     from urllib.parse import urlparse, unquote
 
@@ -526,8 +532,29 @@ async def _store_to_sink_uri(triplets: list, sink_uri: str, graph_name: str | No
         finally:
             await adapter.close()
 
+    elif scheme == "kuzudb":
+        from cgc.adapters.graph import KuzudbAdapter
+
+        # Extract path from URI: kuzudb:///path/to/dir or kuzudb://./relative
+        path = parsed.path or parsed.netloc + parsed.path
+        if not path:
+            raise ValueError("KuzuDB URI requires a directory path: kuzudb:///path/to/dir")
+
+        adapter = KuzudbAdapter("_temp_kuzudb", path)
+        try:
+            await adapter.connect()
+            result = await adapter.store_triplets(triplets, graph_name=graph_name)
+            return {
+                "stored": result.stored_count,
+                "skipped": result.skipped_count,
+                "errors": result.errors,
+                "sink_type": "kuzudb",
+            }
+        finally:
+            await adapter.close()
+
     else:
-        raise ValueError(f"Unsupported sink URI scheme: {scheme}. Use neo4j://, age://, or postgresql://")
+        raise ValueError(f"Unsupported sink URI scheme: {scheme}. Use neo4j://, age://, postgresql://, or kuzudb://")
 
 
 # === Schema Discovery ===

@@ -369,7 +369,7 @@ def create_server() -> Server:
             # === Graph Sink Tools ===
             Tool(
                 name="cgc_add_sink",
-                description="Add a graph sink for storing extracted triplets. Supports: neo4j, age (PostgreSQL Apache AGE)",
+                description="Add a graph sink for storing extracted triplets. Supports: neo4j, age (PostgreSQL Apache AGE), kuzudb (embedded graph database)",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -379,12 +379,12 @@ def create_server() -> Server:
                         },
                         "sink_type": {
                             "type": "string",
-                            "enum": ["neo4j", "age"],
+                            "enum": ["neo4j", "age", "kuzudb"],
                             "description": "Type of graph database",
                         },
                         "connection": {
                             "type": "string",
-                            "description": "Connection string (bolt://host:port for Neo4j, postgresql://... for AGE)",
+                            "description": "Connection string (bolt://host:port for Neo4j, postgresql://... for AGE, directory path for KuzuDB)",
                         },
                         "user": {
                             "type": "string",
@@ -925,9 +925,13 @@ Status: {"WARNING: Session will be rotated on next save" if stats.needs_rotation
                     graph_name = arguments.get("database", "cgc_graph")
                     adapter = AgeAdapter(sink_id, connection, graph_name=graph_name)
                     connector.add_sink(adapter)
+                elif sink_type == "kuzudb":
+                    from cgc.adapters.graph import KuzudbAdapter
+                    adapter = KuzudbAdapter(sink_id, connection)
+                    connector.add_sink(adapter)
                 else:
                     return CallToolResult(
-                        content=[TextContent(type="text", text=f"Unknown sink type: {sink_type}. Use 'neo4j' or 'age'.")]
+                        content=[TextContent(type="text", text=f"Unknown sink type: {sink_type}. Use 'neo4j', 'age', or 'kuzudb'.")]
                     )
 
                 return CallToolResult(

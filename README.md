@@ -78,7 +78,7 @@ CGC works out of the box with a generous free tier. Pro unlocks cloud-powered gr
 | **Graph extraction (files)** | -- | Yes | Yes |
 | **Structured extraction (CSV, Excel, JSON)** | -- | Yes | Yes |
 | **Domain detection (17 industry packs)** | -- | Yes | Yes |
-| **Graph sinks (Neo4j, PostgreSQL AGE)** | -- | Yes | Yes |
+| **Graph sinks (Neo4j, PostgreSQL AGE, KuzuDB)** | -- | Yes | Yes |
 | **Cloud-powered extraction (no ML setup)** | -- | -- | Yes |
 
 **New users get a free 14-day trial** with full access to all extraction features. After the trial, context extension features (connecting, discovering, sampling, chunking, searching) remain free forever.
