@@ -10,12 +10,10 @@ Uses the GliNER model to identify named entities with support for:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from cgc.core.triplet import Triplet
-from cgc.discovery.filters import is_garbage_entity, filter_entities
 from cgc.discovery.constraints import normalize_label
-
+from cgc.discovery.filters import filter_entities
 
 # --- Label batches (max ~10 per batch, max 20 per GliNER call) ---
 

@@ -6,8 +6,8 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
-from sqlalchemy import text, inspect
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy import inspect, text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from cgc.adapters.base import (
     DataSource,
@@ -23,7 +23,7 @@ from cgc.core.chunk import (
     ChunkStrategy,
     FixedRowsStrategy,
 )
-from cgc.core.errors import EntityNotFoundError, QueryError
+from cgc.core.errors import QueryError
 from cgc.core.graph import (
     Confidence,
     InferenceMethod,
@@ -48,7 +48,6 @@ from cgc.core.schema import (
     SchemaStats,
     SourceType,
 )
-
 
 # Map SQLAlchemy types to our DataType enum
 TYPE_MAP = {

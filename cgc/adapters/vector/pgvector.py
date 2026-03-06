@@ -6,11 +6,11 @@ import time
 from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from cgc.adapters.base import DiscoveryOptions, FirstN, HealthStatus, SampleStrategy
-from cgc.adapters.vector.base import VectorSource
 from cgc.adapters.sql import to_async_url
+from cgc.adapters.vector.base import VectorSource
 from cgc.core.chunk import Chunk, ChunkMetadata, ChunkStrategy, FixedRowsStrategy
 from cgc.core.query import Query, QueryResult, SemanticQuery, SqlQuery
 from cgc.core.schema import (

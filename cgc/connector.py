@@ -10,7 +10,7 @@ from cgc.adapters.graph.base import GraphSink, StorageResult
 from cgc.core.chunk import Chunk, ChunkStrategy
 from cgc.core.errors import SourceNotFoundError
 from cgc.core.graph import RelationshipGraph
-from cgc.core.query import Query, QueryResult, SqlQuery, SemanticQuery
+from cgc.core.query import Query, QueryResult, SemanticQuery, SqlQuery
 from cgc.core.schema import FieldId, Schema
 from cgc.core.triplet import Triplet
 from cgc.discovery.engine import RelationshipDiscoveryEngine
@@ -68,7 +68,7 @@ class Connector:
 
     # === Source Management ===
 
-    def add_source(self, source: DataSource) -> "Connector":
+    def add_source(self, source: DataSource) -> Connector:
         """Add a data source.
 
         Args:
@@ -125,7 +125,7 @@ class Connector:
 
     # === Graph Sink Management ===
 
-    def add_sink(self, sink: GraphSink) -> "Connector":
+    def add_sink(self, sink: GraphSink) -> Connector:
         """Add a graph sink for triplet storage.
 
         Args:
@@ -493,6 +493,7 @@ class Connector:
             Tuple of (triplets, file_type) where file_type is "structured" or "unstructured"
         """
         from pathlib import Path as _Path
+
         from cgc.adapters.parsers import parse_file
 
         file_path = _Path(path)
@@ -791,7 +792,7 @@ class Connector:
         for sink in self._sinks.values():
             await sink.close()
 
-    async def __aenter__(self) -> "Connector":
+    async def __aenter__(self) -> Connector:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -821,7 +822,7 @@ class ConnectorBuilder:
         self._sinks: list[GraphSink] = []
         self._cache_path: str | None = None
 
-    def add_source(self, source: DataSource) -> "ConnectorBuilder":
+    def add_source(self, source: DataSource) -> ConnectorBuilder:
         """Add a generic data source."""
         self._sources.append(source)
         return self
@@ -831,7 +832,7 @@ class ConnectorBuilder:
         source_id: str,
         connection_string: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a PostgreSQL source."""
         from cgc.adapters.sql import SqlAdapter
 
@@ -843,7 +844,7 @@ class ConnectorBuilder:
         source_id: str,
         connection_string: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a MySQL source."""
         from cgc.adapters.sql import SqlAdapter
 
@@ -855,7 +856,7 @@ class ConnectorBuilder:
         source_id: str,
         path: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a SQLite source."""
         from cgc.adapters.sql import SqlAdapter
 
@@ -867,7 +868,7 @@ class ConnectorBuilder:
         source_id: str,
         path: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a local filesystem source."""
         from cgc.adapters.filesystem import FilesystemAdapter
 
@@ -879,7 +880,7 @@ class ConnectorBuilder:
         source_id: str,
         connection_string: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a pgvector source."""
         from cgc.adapters.vector.pgvector import PgVectorAdapter
 
@@ -892,7 +893,7 @@ class ConnectorBuilder:
         url: str = "http://localhost:6333",
         api_key: str | None = None,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a Qdrant source."""
         from cgc.adapters.vector.qdrant import QdrantAdapter
 
@@ -905,7 +906,7 @@ class ConnectorBuilder:
         api_key: str,
         index_name: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a Pinecone source."""
         from cgc.adapters.vector.pinecone import PineconeAdapter
 
@@ -918,7 +919,7 @@ class ConnectorBuilder:
         connection_string: str,
         database: str,
         **kwargs,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a MongoDB Atlas Vector Search source."""
         from cgc.adapters.vector.mongodb import MongoVectorAdapter
 
@@ -927,14 +928,14 @@ class ConnectorBuilder:
         )
         return self
 
-    def with_cache(self, path: str) -> "ConnectorBuilder":
+    def with_cache(self, path: str) -> ConnectorBuilder:
         """Set cache path for schema caching."""
         self._cache_path = path
         return self
 
     # === Graph Sinks ===
 
-    def add_sink(self, sink: GraphSink) -> "ConnectorBuilder":
+    def add_sink(self, sink: GraphSink) -> ConnectorBuilder:
         """Add a generic graph sink."""
         self._sinks.append(sink)
         return self
@@ -946,7 +947,7 @@ class ConnectorBuilder:
         user: str | None = None,
         password: str | None = None,
         database: str | None = None,
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a Neo4j graph sink.
 
         Args:
@@ -966,7 +967,7 @@ class ConnectorBuilder:
         sink_id: str,
         connection: str,
         graph_name: str = "cgc_graph",
-    ) -> "ConnectorBuilder":
+    ) -> ConnectorBuilder:
         """Add a PostgreSQL Apache AGE graph sink.
 
         Args:

@@ -31,11 +31,10 @@ from __future__ import annotations
 import gzip
 import json
 import warnings
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
 
 # === Configuration Constants ===
 
@@ -94,7 +93,7 @@ class WorkItem:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "WorkItem":
+    def from_dict(cls, data: dict[str, Any]) -> WorkItem:
         return cls(**data)
 
 
@@ -111,7 +110,7 @@ class Decision:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Decision":
+    def from_dict(cls, data: dict[str, Any]) -> Decision:
         return cls(**data)
 
 
@@ -402,7 +401,7 @@ class Session:
 
         # Warnings
         if self._truncation_warnings:
-            lines.append(f"\n## Session Warnings")
+            lines.append("\n## Session Warnings")
             for warn in self._truncation_warnings[-5:]:
                 lines.append(f"- {warn}")
 
@@ -434,7 +433,7 @@ class Session:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Session":
+    def from_dict(cls, data: dict[str, Any]) -> Session:
         """Create from dictionary."""
         session = cls(
             id=data["id"],
@@ -455,7 +454,7 @@ class Session:
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "Session":
+    def from_json(cls, json_str: str) -> Session:
         """Deserialize from JSON string."""
         return cls.from_dict(json.loads(json_str))
 

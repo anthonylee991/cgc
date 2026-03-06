@@ -6,7 +6,7 @@ import time
 from typing import Any
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from cgc.adapters.base import DiscoveryOptions, FirstN, HealthStatus, SampleStrategy
 from cgc.adapters.vector.base import VectorSource

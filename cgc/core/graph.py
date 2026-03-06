@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Iterator
 
 from .schema import FieldId
 

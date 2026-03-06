@@ -21,8 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from cgc.connector import Connector
-from cgc.core.chunk import FixedRowsStrategy, FixedTokensStrategy, BySectionsStrategy
-
+from cgc.core.chunk import BySectionsStrategy, FixedRowsStrategy, FixedTokensStrategy
 
 # === Request/Response Models ===
 
@@ -437,7 +436,7 @@ async def _store_to_sink_uri(triplets: list, sink_uri: str, graph_name: str | No
     - postgresql://... (treated as AGE)
     - kuzudb:///path/to/dir (embedded graph database)
     """
-    from urllib.parse import urlparse, unquote
+    from urllib.parse import unquote, urlparse
 
     parsed = urlparse(sink_uri)
     scheme = parsed.scheme.lower()

@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 from cgc.core.triplet import Triplet, TripletCollection
-from cgc.discovery.patterns import PatternMatcher, extract_triplets_with_patterns
 from cgc.discovery.filters import deduplicate_triplets, filter_triplets
+from cgc.discovery.patterns import PatternMatcher, extract_triplets_with_patterns
 
 logger = logging.getLogger(__name__)
 

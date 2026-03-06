@@ -11,7 +11,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 from cgc.core.triplet import Triplet
 
@@ -257,13 +256,10 @@ class StructuredExtractor:
             return []
 
         classifications = self.classify_columns(data)
-        class_map = {c.name: c for c in classifications}
-
         # Find hub column(s)
         hub_cols = [c for c in classifications if c.column_type == ColumnType.PRIMARY_ENTITY]
         entity_cols = [c for c in classifications if c.column_type == ColumnType.ENTITY]
         fk_cols = [c for c in classifications if c.column_type == ColumnType.FOREIGN_KEY]
-        property_cols = [c for c in classifications if c.column_type == ColumnType.PROPERTY]
 
         if not hub_cols:
             # No hub found; try to form triplets from entity pairs

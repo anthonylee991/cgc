@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -88,7 +88,7 @@ class SecurityConfig:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SecurityConfig":
+    def from_dict(cls, data: dict[str, Any]) -> SecurityConfig:
         """Create from dictionary."""
         return cls(**{k: v for k, v in data.items() if hasattr(cls, k)})
 

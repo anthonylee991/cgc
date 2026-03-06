@@ -13,13 +13,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
 
 from cgc.core.triplet import Triplet
+from cgc.discovery.filters import deduplicate_triplets, filter_triplets
 from cgc.discovery.gliner import EntitySpan, create_gliner_extractor
 from cgc.discovery.glirel import RelationSpan, create_glirel_extractor
-from cgc.discovery.constraints import validate_relation, is_invalid_subject, normalize_predicate
-from cgc.discovery.filters import filter_entities, filter_triplets, deduplicate_triplets
 
 logger = logging.getLogger(__name__)
 

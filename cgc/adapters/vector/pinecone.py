@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from cgc.adapters.base import DiscoveryOptions, FirstN, HealthStatus, SampleStrategy
+from cgc.adapters.base import DiscoveryOptions, HealthStatus, SampleStrategy
 from cgc.adapters.vector.base import VectorSource
 from cgc.core.chunk import Chunk, ChunkMetadata, ChunkStrategy, FixedRowsStrategy
 from cgc.core.query import Query, QueryResult, SemanticQuery

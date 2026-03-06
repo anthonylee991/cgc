@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -124,7 +124,7 @@ class QueryResult:
         """Convert to list of dictionaries."""
         return [dict(zip(self.columns, row)) for row in self.rows]
 
-    def to_pandas(self) -> "pd.DataFrame":
+    def to_pandas(self) -> pd.DataFrame:
         """Convert to pandas DataFrame."""
         import pandas as pd
 

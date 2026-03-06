@@ -14,8 +14,8 @@ High precision extraction using 50+ regex patterns covering:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from cgc.core.triplet import Triplet
 

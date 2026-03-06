@@ -6,9 +6,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from cgc.core.schema import Schema, SourceType
-from cgc.core.query import Query, QueryResult
 from cgc.core.chunk import Chunk, ChunkStrategy
+from cgc.core.query import Query, QueryResult
+from cgc.core.schema import Schema, SourceType
 
 
 @dataclass
@@ -148,7 +148,7 @@ class DataSource(ABC):
         """
         pass
 
-    async def __aenter__(self) -> "DataSource":
+    async def __aenter__(self) -> DataSource:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

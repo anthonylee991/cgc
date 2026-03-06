@@ -56,7 +56,7 @@ class Triplet:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Triplet":
+    def from_dict(cls, data: dict[str, Any]) -> Triplet:
         """Create from dictionary."""
         return cls(
             subject=data["subject"],

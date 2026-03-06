@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from cgc.core.schema import DataType
 

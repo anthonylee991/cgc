@@ -12,15 +12,13 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.table import Table
-from rich.syntax import Syntax
 
 from cgc.connector import Connector
-from cgc.core.chunk import FixedRowsStrategy, FixedTokensStrategy, BySectionsStrategy
+from cgc.core.chunk import BySectionsStrategy, FixedRowsStrategy, FixedTokensStrategy
 
 # Main app
 app = typer.Typer(
@@ -38,7 +36,6 @@ def run_async(coro):
 
     On Windows, uses SelectorEventLoop for compatibility with asyncpg/psycopg3.
     """
-    import sys
     if sys.platform == "win32":
         # Windows requires SelectorEventLoop for asyncpg to work
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -63,9 +60,8 @@ def serve(
     """
     import uvicorn
 
-    from cgc.api.server import app as api_app
 
-    console.print(f"[bold green]Starting CGC API server[/bold green]")
+    console.print("[bold green]Starting CGC API server[/bold green]")
     console.print(f"  Host: {host}")
     console.print(f"  Port: {port}")
     console.print(f"  Docs: http://{host}:{port}/docs")
@@ -150,7 +146,7 @@ def discover(
     source_type: str = typer.Argument(..., help="Source type: postgres, sqlite, mysql, filesystem"),
     connection: str = typer.Argument(..., help="Connection string or path"),
     source_id: str = typer.Option("default", "--id", "-i", help="Source ID"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
 ):
     """Discover schema for a data source.
 
@@ -295,7 +291,7 @@ def sql(
     connection: str = typer.Argument(..., help="Connection string"),
     query: str = typer.Argument(..., help="SQL query to execute"),
     source_id: str = typer.Option("default", "--id", "-i", help="Source ID"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
 ):
     """Execute a SQL query.
 
@@ -355,9 +351,9 @@ def chunk(
     connection: str = typer.Argument(..., help="Connection string or path"),
     entity: str = typer.Argument(..., help="Entity name"),
     strategy: str = typer.Option("rows:1000", "--strategy", "-s", help="Strategy: rows:N, tokens:N, sections"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output directory"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output directory"),
     source_id: str = typer.Option("default", "--id", "-i", help="Source ID"),
-    get: Optional[int] = typer.Option(None, "--get", "-g", help="Get specific chunk content by index"),
+    get: int | None = typer.Option(None, "--get", "-g", help="Get specific chunk content by index"),
 ):
     """Chunk data from an entity.
 
@@ -439,7 +435,7 @@ def chunk(
                 table.add_row("...", f"+{len(chunks) - 20} more", "", "")
 
             console.print(table)
-            console.print(f"\n[dim]Use --get N to view a specific chunk's content[/dim]")
+            console.print("\n[dim]Use --get N to view a specific chunk's content[/dim]")
 
             if output:
                 out_dir = Path(output)
@@ -461,10 +457,10 @@ def chunk(
 def extract(
     text: str = typer.Argument(..., help="Text to extract triplets from"),
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for NER"),
-    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
-    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
-    graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
+    domain: str | None = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+    sink: str | None = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
+    graph_name: str | None = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets (relationships) from text.
 
@@ -520,11 +516,11 @@ def extract(
 @app.command(name="extract-file")
 def extract_file(
     path: str = typer.Argument(..., help="Path to file (CSV, JSON, XLS, XLSX, or text)"),
-    domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack"),
+    domain: str | None = typer.Option(None, "--domain", "-d", help="Force industry pack"),
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for unstructured extraction"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
-    sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
-    graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
+    sink: str | None = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
+    graph_name: str | None = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets from a file.
 
@@ -615,7 +611,7 @@ def list_packs():
     console.print(table)
 
 
-def _display_triplets(triplets: list, output: Optional[str], title: str):
+def _display_triplets(triplets: list, output: str | None, title: str):
     """Display triplets in table or save to file."""
     if not triplets:
         console.print("[yellow]No triplets found[/yellow]")
@@ -639,7 +635,7 @@ def _display_triplets(triplets: list, output: Optional[str], title: str):
             console.print(f"[dim]Showing first 50 of {len(triplets)} triplets[/dim]")
 
 
-def _store_to_sink(triplets: list, sink_uri: str, graph_name: Optional[str] = None):
+def _store_to_sink(triplets: list, sink_uri: str, graph_name: str | None = None):
     """Store triplets to a graph sink specified by URI.
 
     Supported URI formats:
@@ -647,7 +643,7 @@ def _store_to_sink(triplets: list, sink_uri: str, graph_name: Optional[str] = No
       - age://user:pass@host:port/database[?graph=name]
       - kuzudb://path/to/dir
     """
-    from urllib.parse import urlparse, parse_qs
+    from urllib.parse import parse_qs, urlparse
 
     if not triplets:
         console.print("[yellow]No triplets to store[/yellow]")

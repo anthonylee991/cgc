@@ -16,15 +16,14 @@ from typing import Any
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
-    Tool,
-    TextContent,
     CallToolResult,
+    TextContent,
+    Tool,
 )
 
 from cgc.connector import Connector
-from cgc.core.chunk import FixedRowsStrategy, FixedTokensStrategy, BySectionsStrategy
+from cgc.core.chunk import BySectionsStrategy, FixedRowsStrategy, FixedTokensStrategy
 from cgc.core.schema import FieldId
-
 
 # Global connector instance
 _connector: Connector | None = None

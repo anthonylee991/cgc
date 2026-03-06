@@ -184,7 +184,6 @@ PREDICATE_NORMALIZATION: dict[str, str] = {
     "regulated by": "REGULATED_BY",
     "funded by": "FUNDED_BY",
     # Software Engineering
-    "depends on": "DEPENDS_ON",
     "implements": "IMPLEMENTS",
     "extends": "EXTENDS",
     "calls": "CALLS",

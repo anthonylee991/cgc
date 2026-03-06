@@ -137,7 +137,7 @@ class GraphSink(ABC):
         """Close connection / cleanup resources."""
         pass
 
-    async def __aenter__(self) -> "GraphSink":
+    async def __aenter__(self) -> GraphSink:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

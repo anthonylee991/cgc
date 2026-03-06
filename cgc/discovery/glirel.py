@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from cgc.core.triplet import Triplet
-from cgc.discovery.gliner import EntitySpan
 from cgc.discovery.constraints import normalize_predicate, validate_relation
+from cgc.discovery.gliner import EntitySpan
 
 logger = logging.getLogger(__name__)
 

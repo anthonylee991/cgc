@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import re
 import time
 from pathlib import Path
@@ -19,7 +18,7 @@ from cgc.adapters.base import (
     HealthStatus,
     SampleStrategy,
 )
-from cgc.adapters.parsers import get_parser, parse_file, ParsedContent
+from cgc.adapters.parsers import ParsedContent, get_parser, parse_file
 from cgc.core.chunk import (
     BySectionsStrategy,
     Chunk,

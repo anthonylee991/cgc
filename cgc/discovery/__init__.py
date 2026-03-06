@@ -9,35 +9,35 @@ v0.2.0: Multi-stage extraction pipeline with:
 - Semantic type constraints and garbage filtering
 """
 
-from cgc.discovery.engine import (
-    RelationshipDiscoveryEngine,
-    InferenceRule,
-    NamingConventionRule,
-    CardinalityMatchRule,
-    ValueOverlapRule,
-    discover_relationships,
-    extract_relationships_from_text,
-)
-from cgc.discovery.patterns import (
-    PatternMatcher,
-    ConversationalPattern,
-    extract_triplets_with_patterns,
-)
-from cgc.discovery.filters import (
-    is_garbage_entity,
-    filter_triplets,
-    deduplicate_triplets,
-)
 from cgc.discovery.constraints import (
     normalize_label,
     normalize_predicate,
     validate_relation,
 )
+from cgc.discovery.engine import (
+    CardinalityMatchRule,
+    InferenceRule,
+    NamingConventionRule,
+    RelationshipDiscoveryEngine,
+    ValueOverlapRule,
+    discover_relationships,
+    extract_relationships_from_text,
+)
+from cgc.discovery.filters import (
+    deduplicate_triplets,
+    filter_triplets,
+    is_garbage_entity,
+)
 from cgc.discovery.industry_packs import (
-    IndustryPack,
-    get_pack,
-    get_all_packs,
     PACK_REGISTRY,
+    IndustryPack,
+    get_all_packs,
+    get_pack,
+)
+from cgc.discovery.patterns import (
+    ConversationalPattern,
+    PatternMatcher,
+    extract_triplets_with_patterns,
 )
 
 # Lazy imports for heavy modules (avoids loading torch/spacy at import time)

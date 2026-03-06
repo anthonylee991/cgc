@@ -14,19 +14,20 @@ import re
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from cgc.core.schema import Schema, Field, FieldId
 from cgc.core.graph import (
+    Confidence,
+    InferenceMethod,
     Relationship,
     RelationshipGraph,
     RelationshipType,
-    Confidence,
-    InferenceMethod,
 )
+from cgc.core.schema import Entity, FieldId, Schema
 from cgc.core.triplet import Triplet
+
 # NOTE: extract_triplets is imported lazily where used to avoid loading torch/spacy at startup
 
 if TYPE_CHECKING:
-    from cgc.adapters.base import DataSource
+    pass
 
 
 class InferenceRule(ABC):
@@ -77,7 +78,7 @@ class NamingConventionRule(InferenceRule):
         relationships = []
 
         # Build lookup of all entities
-        entity_lookup: dict[str, tuple[Schema, "Entity"]] = {}
+        entity_lookup: dict[str, tuple[Schema, Entity]] = {}
         for schema in schemas:
             for entity in schema.entities:
                 entity_lookup[entity.name.lower()] = (schema, entity)

@@ -129,7 +129,7 @@ class Neo4jAdapter(GraphSink):
                     }
 
                     res = session.run(query, params)
-                    record = res.single()
+                    res.single()
 
                     if merge:
                         # For MERGE, count as merged (we can't easily tell if new)

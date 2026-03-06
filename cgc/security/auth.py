@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import hashlib
-import hmac
 import json
 import os
 import secrets
-import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
-from fastapi import HTTPException, Security, Request
+from fastapi import HTTPException, Request, Security
 from fastapi.security import APIKeyHeader, APIKeyQuery
-
 
 # API Key header/query parameter names
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -50,7 +46,7 @@ class APIKey:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "APIKey":
+    def from_dict(cls, data: dict) -> APIKey:
         return cls(**data)
 
     def is_expired(self) -> bool:

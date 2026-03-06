@@ -13,10 +13,10 @@ from typing import Any
 import numpy as np
 
 from cgc.discovery.industry_packs import (
-    IndustryPack,
-    GENERAL_BUSINESS,
     ALL_PACKS,
+    GENERAL_BUSINESS,
     PACK_REGISTRY,
+    IndustryPack,
     get_pack,
 )
 

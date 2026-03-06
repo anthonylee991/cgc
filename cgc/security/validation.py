@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import re
-import os
-from pathlib import Path
-from typing import Any
 from fnmatch import fnmatch
+from pathlib import Path
 
 
 class SQLValidationError(Exception):
@@ -98,7 +96,7 @@ def validate_entity_name(entity: str) -> str:
     # Check for dangerous patterns
     for pattern in DANGEROUS_SQL_PATTERNS:
         if re.search(pattern, entity):
-            raise InputValidationError(f"Entity name contains forbidden pattern")
+            raise InputValidationError("Entity name contains forbidden pattern")
 
     return entity
 
@@ -177,18 +175,18 @@ def validate_path(
         # Handle glob patterns
         if "*" in blocked:
             if fnmatch(resolved_str, blocked) or fnmatch(resolved_str.lower(), blocked.lower()):
-                raise PathValidationError(f"Access to path is blocked")
+                raise PathValidationError("Access to path is blocked")
         else:
             blocked_resolved = str(Path(blocked).expanduser().resolve())
             if resolved_str.startswith(blocked_resolved) or resolved_str.lower().startswith(blocked_resolved.lower()):
-                raise PathValidationError(f"Access to path is blocked")
+                raise PathValidationError("Access to path is blocked")
 
     # Check filename for sensitive patterns
     filename = resolved.name.lower()
     sensitive_names = ['.env', '.git', '.ssh', 'id_rsa', 'credentials', 'secrets', 'password', 'apikey', 'api_key']
     for sensitive in sensitive_names:
         if sensitive in filename:
-            raise PathValidationError(f"Access to sensitive files is blocked")
+            raise PathValidationError("Access to sensitive files is blocked")
 
     # If allowed_paths is specified and non-empty, path must match
     if allowed_paths:
@@ -205,7 +203,7 @@ def validate_path(
                     break
 
         if not is_allowed:
-            raise PathValidationError(f"Path not in allowed list")
+            raise PathValidationError("Path not in allowed list")
 
     return resolved
 
@@ -312,7 +310,7 @@ def validate_connection_string(connection: str, source_type: str) -> str:
     dangerous = ['`', '$', '|', '&&', '||', '\n', '\r']
     for char in dangerous:
         if char in connection:
-            raise InputValidationError(f"Connection string contains forbidden character")
+            raise InputValidationError("Connection string contains forbidden character")
 
     # Validate based on source type
     if source_type in ('postgres', 'mysql', 'pgvector'):
