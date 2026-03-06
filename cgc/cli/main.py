@@ -51,7 +51,6 @@ def run_async(coro):
 
 @app.command()
 def serve(
-    secure: bool = typer.Option(False, "--secure", "-s", help="Enable security features (auth, rate limiting)"),
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to bind to"),
     port: int = typer.Option(8420, "--port", "-p", help="Port to bind to"),
 ):
@@ -59,47 +58,24 @@ def serve(
 
     Examples:
         cgc serve                    # Start dev server on localhost:8420
-        cgc serve --secure           # Start with authentication required
         cgc serve --host 0.0.0.0     # Allow network access
         cgc serve --port 9000        # Use different port
     """
     import uvicorn
 
-    if secure:
-        from cgc.api.secure_server import app as api_app
-        from cgc.security.config import get_security_config
+    from cgc.api.server import app as api_app
 
-        config = get_security_config()
-        console.print(f"[bold green]Starting secure CGC API server[/bold green]")
-        console.print(f"  Host: {host}")
-        console.print(f"  Port: {port}")
-        console.print(f"  Authentication: [yellow]REQUIRED[/yellow]")
-        console.print(f"  Rate limiting: [green]ENABLED[/green]")
-        console.print()
-        console.print("[dim]To create an API key, temporarily set CGC_REQUIRE_AUTH=false[/dim]")
+    console.print(f"[bold green]Starting CGC API server[/bold green]")
+    console.print(f"  Host: {host}")
+    console.print(f"  Port: {port}")
+    console.print(f"  Docs: http://{host}:{port}/docs")
 
-        uvicorn.run(
-            "cgc.api.secure_server:app",
-            host=host,
-            port=port,
-            reload=False,
-        )
-    else:
-        from cgc.api.server import app as api_app
-
-        console.print(f"[bold green]Starting CGC API server[/bold green]")
-        console.print(f"  Host: {host}")
-        console.print(f"  Port: {port}")
-        console.print(f"  Docs: http://{host}:{port}/docs")
-        console.print()
-        console.print("[yellow]Warning: No authentication - use --secure for production[/yellow]")
-
-        uvicorn.run(
-            "cgc.api.server:app",
-            host=host,
-            port=port,
-            reload=False,
-        )
+    uvicorn.run(
+        "cgc.api.server:app",
+        host=host,
+        port=port,
+        reload=False,
+    )
 
 
 @app.command()
@@ -487,14 +463,13 @@ def extract(
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for NER"),
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack (e.g., tech_startup, ecommerce_retail)"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
-    local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
     sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
     graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets (relationships) from text.
 
-    Requires CGC Pro or an active trial. Use --local to run extraction
-    locally instead of via the cloud relay.
+    Uses pattern matching and ML-based NER (GliNER/GLiREL) to extract
+    subject-predicate-object triplets from natural language text.
 
     Use --sink to store triplets directly in a graph database:
       - Neo4j: --sink neo4j://user:pass@localhost:7687
@@ -505,28 +480,12 @@ def extract(
         cgc extract "Apple was founded by Steve Jobs in California"
         cgc extract "The user John placed order #123" --no-gliner
         cgc extract "Elon Musk founded SpaceX" --domain tech_startup
-        cgc extract "some text" --local
         cgc extract "Steve Jobs founded Apple" --sink neo4j://neo4j:password@localhost:7687
         cgc extract "Steve Jobs founded Apple" --sink kuzudb://./my_graph
     """
-    from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
+    from cgc.discovery.extractor import extract_triplets
 
-    store = LicenseStore()
-    try:
-        require_extraction(store)
-    except LicenseError as e:
-        console.print(f"[red]{e}[/red]")
-        raise typer.Exit(1)
-
-    # Use local extraction if --local flag or no license key (trial users)
-    use_local = local or not get_license_key(store)
-
-    if use_local:
-        from cgc.discovery.extractor import extract_triplets
-        triplets = extract_triplets(text, use_gliner=gliner, domain=domain)
-    else:
-        connector = Connector()
-        triplets = connector.extract_remote(text=text, use_gliner=gliner, domain=domain, store=store)
+    triplets = extract_triplets(text, use_gliner=gliner, domain=domain)
 
     if not triplets:
         console.print("[yellow]No triplets found[/yellow]")
@@ -540,7 +499,7 @@ def extract(
         data = [t.to_dict() for t in triplets]
         Path(output).write_text(json.dumps(data, indent=2))
         console.print(f"[green]Saved {len(triplets)} triplets to {output}[/green]")
-    elif not sink:  # Only show table if not sinking (sink shows its own output)
+    elif not sink:
         table = Table(title="Extracted Triplets")
         table.add_column("Subject")
         table.add_column("Predicate")
@@ -564,15 +523,13 @@ def extract_file(
     domain: Optional[str] = typer.Option(None, "--domain", "-d", help="Force industry pack"),
     gliner: bool = typer.Option(True, "--gliner/--no-gliner", help="Use GliNER for unstructured extraction"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output file (JSON)"),
-    local: bool = typer.Option(False, "--local", "-l", help="Force local extraction (requires ML dependencies)"),
     sink: Optional[str] = typer.Option(None, "--sink", "-s", help="Graph sink URI (neo4j://, age://, or kuzudb://)"),
     graph_name: Optional[str] = typer.Option(None, "--graph", "-g", help="Graph name (for AGE sinks)"),
 ):
     """Extract triplets from a file.
 
-    Requires CGC Pro or an active trial. For structured files (CSV, JSON,
-    XLS, XLSX), uses hub-and-spoke extraction. For unstructured files
-    (text, PDF, etc.), uses pattern + ML extraction.
+    For structured files (CSV, JSON, XLS, XLSX), uses hub-and-spoke extraction.
+    For unstructured files (text, PDF, etc.), uses pattern + ML extraction.
 
     Use --sink to store triplets directly in a graph database:
       - Neo4j: --sink neo4j://user:pass@localhost:7687
@@ -584,40 +541,22 @@ def extract_file(
         cgc extract-file ./data.json
         cgc extract-file ./sales.csv --domain ecommerce_retail
         cgc extract-file ./inventory.xlsx
-        cgc extract-file ./data.csv --local
         cgc extract-file ./data.csv --sink neo4j://neo4j:password@localhost:7687
         cgc extract-file ./data.csv --sink kuzudb://./my_graph
     """
-    from cgc.licensing import LicenseStore, LicenseError, require_extraction, get_license_key
-
-    store = LicenseStore()
-    try:
-        require_extraction(store)
-    except LicenseError as e:
-        console.print(f"[red]{e}[/red]")
-        raise typer.Exit(1)
-
     connector = Connector()
-    use_local = local or not get_license_key(store)
 
-    if use_local:
-        try:
-            triplets, file_type = connector.extract_file(path, domain=domain, use_gliner=gliner)
-        except FileNotFoundError:
-            console.print(f"[red]File not found: {path}[/red]")
-            raise typer.Exit(1)
-    else:
-        try:
-            triplets, file_type = connector.extract_file_remote(path, domain=domain, use_gliner=gliner, store=store)
-        except FileNotFoundError:
-            console.print(f"[red]File not found: {path}[/red]")
-            raise typer.Exit(1)
+    try:
+        triplets, file_type = connector.extract_file(path, domain=domain, use_gliner=gliner)
+    except FileNotFoundError:
+        console.print(f"[red]File not found: {path}[/red]")
+        raise typer.Exit(1)
 
     # Store to graph sink if specified
     if sink:
         _store_to_sink(triplets, sink, graph_name)
         if not output:
-            return  # Don't show table if storing to sink
+            return
 
     label = "Structured" if file_type == "structured" else "Extracted"
     _display_triplets(triplets, output, f"{label} Triplets ({Path(path).name})")
@@ -790,87 +729,6 @@ def _store_to_sink(triplets: list, sink_uri: str, graph_name: Optional[str] = No
     run_async(_store())
 
 
-# =============================================================================
-# License Commands
-# =============================================================================
-
-@app.command(name="activate")
-def activate_license(
-    key: str = typer.Argument(..., help="License key (UUID from purchase)"),
-):
-    """Activate a CGC Pro license.
-
-    Enter the license key from your purchase to unlock graph extraction.
-
-    Examples:
-        cgc activate 27cbe0cb-b43d-43a8-a56d-1540c9330430
-    """
-    from cgc.licensing import LicenseStore, LicenseError, activate
-
-    store = LicenseStore()
-    try:
-        activate(key, store)
-        console.print("[bold green]License activated successfully![/bold green]")
-        console.print("Tier: [bold]Pro[/bold]")
-        console.print("\nGraph extraction is now available.")
-    except LicenseError as e:
-        console.print(f"[red]{e}[/red]")
-        raise typer.Exit(1)
-
-
-@app.command(name="license")
-def license_info():
-    """Show current license status and tier.
-
-    Examples:
-        cgc license
-    """
-    from datetime import datetime, timedelta, timezone
-    from cgc.licensing import LicenseStore, get_tier, Tier, TRIAL_DURATION_DAYS
-
-    store = LicenseStore()
-    tier = get_tier(store)
-    license = store.load()
-
-    console.print(f"\n[bold]CGC License Status[/bold]")
-    console.print()
-
-    if tier == Tier.PRO:
-        console.print(f"  Tier: [bold green]Pro[/bold green]")
-        if license and license.last_validated:
-            console.print(f"  Last validated: {license.last_validated.strftime('%Y-%m-%d %H:%M UTC')}")
-            console.print(f"  Key: {license.license_key[:8]}...{license.license_key[-4:]}")
-    elif tier == Tier.TRIAL:
-        console.print(f"  Tier: [bold yellow]Trial[/bold yellow]")
-        if license and license.trial_start:
-            expires = license.trial_start + timedelta(days=TRIAL_DURATION_DAYS)
-            remaining = expires - datetime.now(timezone.utc)
-            days_left = max(0, remaining.days)
-            console.print(f"  Days remaining: {days_left}")
-            console.print(f"  Expires: {expires.strftime('%Y-%m-%d')}")
-    else:
-        console.print(f"  Tier: [dim]Free[/dim]")
-        console.print()
-        console.print("  Graph extraction is not available on the free tier.")
-        console.print("  Run [bold]cgc activate <key>[/bold] to upgrade to Pro.")
-
-    console.print()
-
-
-@app.command(name="deactivate")
-def deactivate_license():
-    """Remove the stored license and revert to free tier.
-
-    Examples:
-        cgc deactivate
-    """
-    from cgc.licensing import LicenseStore, deactivate
-
-    store = LicenseStore()
-    deactivate(store)
-    console.print("[yellow]License removed. Reverted to free tier.[/yellow]")
-
-
 @app.command()
 def health(
     source_type: str = typer.Argument(..., help="Source type"),
@@ -932,7 +790,6 @@ def version():
     console.print()
     console.print("Commands:")
     console.print("  cgc serve          Start HTTP API server")
-    console.print("  cgc serve --secure Start secure API server")
     console.print("  cgc mcp            Start MCP server (for Claude)")
     console.print("  cgc discover       Discover data source schema")
     console.print("  cgc sample         Sample data from entity")
@@ -943,9 +800,6 @@ def version():
     console.print("  cgc detect-domain  Detect industry domain of text")
     console.print("  cgc list-packs     List available industry packs")
     console.print("  cgc health         Check data source health")
-    console.print("  cgc activate       Activate a Pro license")
-    console.print("  cgc license        Show license status")
-    console.print("  cgc deactivate     Remove stored license")
 
 
 def main():

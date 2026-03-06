@@ -19,9 +19,6 @@ This guide explains all the commands you can run from your terminal or command p
   - [cgc extract-file](#cgc-extract-file)
   - [cgc detect-domain](#cgc-detect-domain)
   - [cgc list-packs](#cgc-list-packs)
-  - [cgc activate](#cgc-activate)
-  - [cgc license](#cgc-license)
-  - [cgc deactivate](#cgc-deactivate)
   - [cgc health](#cgc-health)
   - [cgc version](#cgc-version)
 - [Tips and Tricks](#tips-and-tricks)
@@ -72,9 +69,7 @@ This shows all available commands.
 
 ## Quick Reference
 
-### Context Extension (Free)
-
-These commands work on all tiers, no license required.
+### Context Extension
 
 | Command | What it does | Example |
 |---------|--------------|---------|
@@ -88,9 +83,7 @@ These commands work on all tiers, no license required.
 | `cgc health` | Check connection | `cgc health postgres "postgresql://..."` |
 | `cgc version` | Show version | `cgc version` |
 
-### Graph Extraction (Trial / Pro)
-
-These commands require an active trial or Pro license.
+### Graph Extraction
 
 | Command | What it does | Example |
 |---------|--------------|---------|
@@ -98,14 +91,6 @@ These commands require an active trial or Pro license.
 | `cgc extract-file` | Extract from a file | `cgc extract-file data.csv` |
 | `cgc detect-domain` | Detect industry domain | `cgc detect-domain "Our Series A..."` |
 | `cgc list-packs` | List industry packs | `cgc list-packs` |
-
-### License Management
-
-| Command | What it does | Example |
-|---------|--------------|---------|
-| `cgc activate` | Activate a Pro license | `cgc activate your-key-here` |
-| `cgc license` | Show license status | `cgc license` |
-| `cgc deactivate` | Remove license | `cgc deactivate` |
 
 ---
 
@@ -427,8 +412,6 @@ cgc chunk filesystem "./documents" report.pdf --get 5
 
 Extract relationships (subject-predicate-object triplets) from text.
 
-**Requires:** Active trial or Pro license. With Pro, extraction uses the cloud relay (no ML setup needed). During the trial or with `--local`, extraction runs on your machine.
-
 **Format:**
 ```
 cgc extract "<text>" [options]
@@ -443,7 +426,6 @@ cgc extract "<text>" [options]
 | `--gliner / --no-gliner` | Use GliNER ML model for enhanced entity recognition | On |
 | `--domain` or `-d` | Force an industry pack (e.g., `tech_startup`) | Auto-detect |
 | `--output` or `-o` | Save results to a JSON file | Display in terminal |
-| `--local` or `-l` | Force local extraction instead of cloud relay | Off (uses cloud for Pro) |
 | `--sink` or `-s` | Store triplets to a graph database (Neo4j, AGE, or KuzuDB) | None |
 | `--graph` or `-g` | Graph name for storage (AGE only) | `cgc_graph` |
 
@@ -467,11 +449,6 @@ cgc extract "Our CTO built the API in Kubernetes." --domain tech_startup
 Save to file:
 ```
 cgc extract "Apple was founded by Steve Jobs." --output results.json
-```
-
-Force local extraction (requires ML dependencies):
-```
-cgc extract "some text" --local
 ```
 
 **Store to Neo4j:**
@@ -499,18 +476,11 @@ cgc extract "John works at Apple" --sink kuzudb://./my_graph_db
 +-------------+-----------+--------------------+------------+
 ```
 
-**Notes:**
-- Pro users get cloud-powered extraction by default -- no ML libraries needed locally
-- Use `--local` if you have `pip install cgc[extraction]` and want to run on your machine
-- Trial users always run extraction locally
-
 ---
 
 ### cgc extract-file
 
 Extract relationships from a file.
-
-**Requires:** Active trial or Pro license.
 
 **Format:**
 ```
@@ -530,7 +500,6 @@ cgc extract-file <file_path> [options]
 | `--gliner / --no-gliner` | Use GliNER ML model (unstructured files only) | On |
 | `--domain` or `-d` | Force an industry pack | Auto-detect |
 | `--output` or `-o` | Save results to a JSON file | Display in terminal |
-| `--local` or `-l` | Force local extraction | Off (uses cloud for Pro) |
 | `--sink` or `-s` | Store triplets to a graph database (Neo4j, AGE, or KuzuDB) | None |
 | `--graph` or `-g` | Graph name for storage (AGE only) | `cgc_graph` |
 
@@ -600,8 +569,6 @@ cgc extract-file contracts.pdf --sink kuzudb://./my_graph_db
 
 Detect the industry domain of text for optimized extraction.
 
-**Requires:** Active trial or Pro license.
-
 **Format:**
 ```
 cgc detect-domain "<text>"
@@ -667,104 +634,6 @@ Available Industry Packs (17):
   energy_environment        - ESG, sustainability, carbon emissions
   software_engineering      - Architecture, APIs, microservices, DevOps
 ```
-
----
-
-### cgc activate
-
-Activate a CGC Pro license key.
-
-**Format:**
-```
-cgc activate <license-key>
-```
-
-**Arguments:**
-- `license-key` - The UUID license key you received after purchase
-
-**Example:**
-```
-cgc activate a1b2c3d4-e5f6-7890-abcd-ef1234567890
-```
-
-**Output (success):**
-```
-License activated successfully!
-Tier: Pro
-
-Graph extraction is now available.
-```
-
-**Output (invalid key):**
-```
-Invalid license key. Please check your key and try again.
-```
-
-**Notes:**
-- License keys are validated against our secure server
-- Once activated, the key is encrypted and stored locally on your machine
-- Your key works on one machine at a time -- use `cgc deactivate` to transfer
-
----
-
-### cgc license
-
-Show current license status and tier.
-
-**Format:**
-```
-cgc license
-```
-
-**Output (Trial):**
-```
-CGC License Status
-
-  Tier: Trial
-  Days remaining: 11
-  Expires: 2026-02-13
-```
-
-**Output (Pro):**
-```
-CGC License Status
-
-  Tier: Pro
-  Last validated: 2026-02-02 10:48 UTC
-  Key: a1b2c3d4...7890
-```
-
-**Output (Free):**
-```
-CGC License Status
-
-  Tier: Free
-
-  Graph extraction requires CGC Pro.
-  Run 'cgc activate <license-key>' to upgrade.
-  Visit https://cgc.dev to purchase a license.
-```
-
----
-
-### cgc deactivate
-
-Remove the stored license and revert to the free tier.
-
-**Format:**
-```
-cgc deactivate
-```
-
-**Output:**
-```
-License removed. Reverted to free tier.
-```
-
-**Notes:**
-- Use this before transferring your license to another machine
-- After deactivation, context extension features keep working
-- Graph extraction will be blocked until you reactivate
 
 ---
 
@@ -912,24 +781,6 @@ Can't access a file or folder.
 1. Make sure the file/folder exists
 2. Check you have read permissions
 3. Try running as administrator (Windows) or with sudo (Mac/Linux)
-
-### "Graph extraction requires CGC Pro"
-
-You're trying to use extraction on the free tier.
-
-**Solutions:**
-1. If you just installed CGC, a trial should start automatically. Run `cgc license` to check
-2. Purchase a Pro license at [https://cgc.dev](https://cgc.dev)
-3. Activate with `cgc activate your-key-here`
-
-### "Invalid license key"
-
-The license key was rejected.
-
-**Solutions:**
-1. Double-check the key (copy-paste from your purchase email)
-2. Make sure you're using the full UUID (e.g., `a1b2c3d4-e5f6-7890-abcd-ef1234567890`)
-3. Contact support if the issue persists
 
 ---
 

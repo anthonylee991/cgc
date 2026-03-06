@@ -554,113 +554,6 @@ class Connector:
             "total_triplets": total_triplets,
         }
 
-    # === Remote Extraction (via cloud relay) ===
-
-    def extract_remote(
-        self,
-        text: str,
-        use_gliner: bool = True,
-        domain: str | None = None,
-        store: Any = None,
-    ) -> list[Triplet]:
-        """Extract triplets via the cloud relay API.
-
-        Args:
-            text: Input text
-            use_gliner: Whether to use GliNER
-            domain: Force a specific industry pack
-            store: LicenseStore instance for retrieving the license key
-
-        Returns:
-            List of extracted triplets
-        """
-        import httpx
-        from cgc.licensing.validator import RELAY_URL, get_license_key
-
-        license_key = get_license_key(store) if store else None
-        if not license_key:
-            raise RuntimeError("No license key found. Run 'cgc activate <key>' first.")
-
-        resp = httpx.post(
-            f"{RELAY_URL}/v1/extract/text",
-            headers={"X-License-Key": license_key},
-            json={"text": text, "use_gliner": use_gliner, "domain": domain},
-            timeout=120.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        return [
-            Triplet(
-                subject=t["subject"],
-                predicate=t["predicate"],
-                object=t["object"],
-                confidence=t.get("confidence", 0.0),
-                metadata=t.get("metadata"),
-            )
-            for t in data.get("triplets", [])
-        ]
-
-    def extract_file_remote(
-        self,
-        path: str,
-        domain: str | None = None,
-        use_gliner: bool = True,
-        store: Any = None,
-    ) -> tuple[list[Triplet], str]:
-        """Extract triplets from a file via the cloud relay API.
-
-        Args:
-            path: Path to the file
-            domain: Force a specific industry pack
-            use_gliner: Whether to use GliNER for unstructured extraction
-            store: LicenseStore instance for retrieving the license key
-
-        Returns:
-            Tuple of (triplets, file_type)
-        """
-        import httpx
-        from pathlib import Path as _Path
-        from cgc.licensing.validator import RELAY_URL, get_license_key
-
-        file_path = _Path(path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {path}")
-
-        license_key = get_license_key(store) if store else None
-        if not license_key:
-            raise RuntimeError("No license key found. Run 'cgc activate <key>' first.")
-
-        with open(file_path, "rb") as f:
-            files = {"file": (file_path.name, f)}
-            data = {}
-            if domain:
-                data["domain"] = domain
-            data["use_gliner"] = str(use_gliner).lower()
-
-            resp = httpx.post(
-                f"{RELAY_URL}/v1/extract/file",
-                headers={"X-License-Key": license_key},
-                files=files,
-                data=data,
-                timeout=120.0,
-            )
-        resp.raise_for_status()
-        result = resp.json()
-
-        triplets = [
-            Triplet(
-                subject=t["subject"],
-                predicate=t["predicate"],
-                object=t["object"],
-                confidence=t.get("confidence", 0.0),
-                metadata=t.get("metadata"),
-            )
-            for t in result.get("triplets", [])
-        ]
-
-        return triplets, result.get("file_type", "unstructured")
-
     def detect_domain(self, text: str) -> dict[str, Any]:
         """Detect the industry domain of text for optimized extraction.
 
@@ -715,8 +608,6 @@ class Connector:
         domain: str | None = None,
         graph_name: str | None = None,
         merge: bool = True,
-        use_remote: bool = False,
-        store: Any = None,
     ) -> dict[str, Any]:
         """Extract triplets from text and store in a graph sink.
 
@@ -729,17 +620,11 @@ class Connector:
             domain: Force a specific industry pack
             graph_name: Optional graph name (for AGE)
             merge: If True, merge with existing nodes/edges
-            use_remote: If True, use cloud relay for extraction
-            store: LicenseStore instance for remote extraction
 
         Returns:
             Dict with triplets and storage result
         """
-        # Extract triplets
-        if use_remote:
-            triplets = self.extract_remote(text, use_gliner, domain, store)
-        else:
-            triplets = self.extract_triplets(text, use_gliner, domain)
+        triplets = self.extract_triplets(text, use_gliner, domain)
 
         # Store triplets
         result = await self.store_triplets(sink_id, triplets, graph_name, merge)
@@ -766,8 +651,6 @@ class Connector:
         use_gliner: bool = True,
         graph_name: str | None = None,
         merge: bool = True,
-        use_remote: bool = False,
-        store: Any = None,
     ) -> dict[str, Any]:
         """Extract triplets from a file and store in a graph sink.
 
@@ -778,17 +661,11 @@ class Connector:
             use_gliner: Whether to use GliNER
             graph_name: Optional graph name (for AGE)
             merge: If True, merge with existing nodes/edges
-            use_remote: If True, use cloud relay for extraction
-            store: LicenseStore instance for remote extraction
 
         Returns:
             Dict with triplets, file type, and storage result
         """
-        # Extract triplets
-        if use_remote:
-            triplets, file_type = self.extract_file_remote(path, domain, use_gliner, store)
-        else:
-            triplets, file_type = self.extract_file(path, domain, use_gliner)
+        triplets, file_type = self.extract_file(path, domain, use_gliner)
 
         # Store triplets
         result = await self.store_triplets(sink_id, triplets, graph_name, merge)

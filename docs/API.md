@@ -7,7 +7,6 @@ This guide explains how to use CGC's HTTP API to connect your data to AI tools a
 ## Table of Contents
 
 - [Understanding CGC](#understanding-cgc-what-it-does-and-doesnt-do)
-- [Free vs Pro Endpoints](#free-vs-pro-endpoints)
 - [Common Workflows](#common-workflows-step-by-step)
 - [Quick Start](#quick-start)
 - [All Endpoints](#all-endpoints-reference)
@@ -23,17 +22,17 @@ Before diving into the API, it's important to understand what CGC handles and wh
 
 ### What CGC Does
 
-| Task | Tier | Description |
-|------|------|-------------|
-| Connect to files | Free | Point CGC at a folder, it reads PDFs, Word docs, text files |
-| Connect to databases | Free | PostgreSQL, MySQL, SQLite - CGC reads your tables |
-| Break documents into chunks | Free | Split large files into AI-sized pieces |
-| Search text (keyword) | Free | Find text patterns in files or database fields |
-| Connect to vector databases | Free | Qdrant, Pinecone, pgvector |
-| Schema discovery and sampling | Free | Explore your data structure without reading everything |
-| Extract relationships from text | Trial/Pro | Find "who did what to whom" in sentences |
-| Extract from files (CSV, Excel, JSON) | Trial/Pro | Convert structured data into knowledge graph triplets |
-| Domain detection | Trial/Pro | Classify text by industry for optimized extraction |
+| Task | Description |
+|------|-------------|
+| Connect to files | Point CGC at a folder, it reads PDFs, Word docs, text files |
+| Connect to databases | PostgreSQL, MySQL, SQLite - CGC reads your tables |
+| Break documents into chunks | Split large files into AI-sized pieces |
+| Search text (keyword) | Find text patterns in files or database fields |
+| Connect to vector databases | Qdrant, Pinecone, pgvector |
+| Schema discovery and sampling | Explore your data structure without reading everything |
+| Extract relationships from text | Find "who did what to whom" in sentences |
+| Extract from files (CSV, Excel, JSON) | Convert structured data into knowledge graph triplets |
+| Domain detection | Classify text by industry for optimized extraction |
 
 ### What CGC Does NOT Do
 
@@ -42,37 +41,6 @@ Before diving into the API, it's important to understand what CGC handles and wh
 | Convert text to vectors (embeddings) | External service | OpenAI, Cohere, or local model |
 | Store extracted triplets | You decide | Database, Neo4j, or JSON file |
 | Summarize text | External AI | OpenAI, Claude, etc. |
-
----
-
-## Free vs Pro Endpoints
-
-| Endpoint | Free | Trial/Pro |
-|----------|------|-----------|
-| `GET /health` | Yes | Yes |
-| `GET /sources`, `POST /sources`, `DELETE /sources/{id}` | Yes | Yes |
-| `GET /sources/{id}/schema` | Yes | Yes |
-| `GET /schemas` | Yes | Yes |
-| `POST /query/sql` | Yes | Yes |
-| `POST /query/search` | Yes | Yes |
-| `POST /query/vector` | Yes | Yes |
-| `POST /sample` | Yes | Yes |
-| `POST /chunk` | Yes | Yes |
-| `GET /graph` | Yes | Yes |
-| `POST /graph/find-related` | Yes | Yes |
-| `GET /summary` | Yes | Yes |
-| `POST /extract/triplets` | -- | Yes |
-| `POST /extract/structured` | -- | Yes |
-| `POST /extract/file` | -- | Yes |
-| `POST /extract/chunked` | -- | Yes |
-| `POST /detect/domain` | -- | Yes |
-| `GET /packs` | -- | Yes |
-| `GET /sinks`, `POST /sinks`, `DELETE /sinks/{id}` | -- | Yes |
-| `GET /sinks/{id}/stats` | -- | Yes |
-| `POST /sinks/{id}/query` | -- | Yes |
-| `GET /sinks/{id}/find/{entity}` | -- | Yes |
-
-Extraction and sink endpoints return a `403` error on the free tier with instructions to upgrade.
 
 ---
 
@@ -143,7 +111,7 @@ POST http://localhost:8420/chunk
 
 ---
 
-### Workflow 3: Extract Knowledge from Text (Trial/Pro)
+### Workflow 3: Extract Knowledge from Text
 
 **Goal:** Build a knowledge graph from documents
 
@@ -179,7 +147,7 @@ POST http://localhost:8420/extract/triplets
 
 ---
 
-### Workflow 4: Extract from Structured Data (Trial/Pro)
+### Workflow 4: Extract from Structured Data
 
 **Goal:** Convert a CSV or Excel file into knowledge graph triplets
 
@@ -207,7 +175,7 @@ file: employees.csv
 
 ---
 
-### Workflow 5: Chunk Then Extract (Trial/Pro)
+### Workflow 5: Chunk Then Extract
 
 **Goal:** Process a large file by chunking it first, then extracting from each chunk
 
@@ -453,9 +421,7 @@ Returns a compact overview of all connected sources and their schemas. Useful fo
 
 ---
 
-### Extracting Knowledge (Trial/Pro)
-
-These endpoints require an active trial or Pro license.
+### Extracting Knowledge
 
 #### Extract Triplets from Text
 Find facts/relationships in text.
@@ -594,7 +560,7 @@ Returns 17 industry packs: `general_business`, `tech_startup`, `ecommerce_retail
 
 ---
 
-### Managing Graph Sinks (Trial/Pro)
+### Managing Graph Sinks
 
 Graph sinks are databases where extracted triplets can be stored automatically.
 
@@ -863,7 +829,6 @@ If using n8n's AI Agent with HTTP Request Tool nodes, you may see "Field require
 | Error | Meaning | Fix |
 |-------|---------|-----|
 | 401 Unauthorized | Missing API key | Add `X-API-Key` header (secure mode) |
-| 403 Forbidden | Free tier trying to use extraction | Activate a Pro license: `cgc activate <key>` |
 | 404 Source Not Found | Source not connected | Add source first with POST /sources |
 | 422 Validation Error | Bad input format | Check that entity is a string, not JSON object |
 | 400 SQL Blocked | Dangerous SQL | Only SELECT queries allowed |

@@ -13,7 +13,6 @@ This guide explains how to connect CGC to Claude Desktop, Claude Code, or other 
 - [Setup for Windsurf](#setup-for-windsurf)
 - [Setup for Cline](#setup-for-cline)
 - [Available Tools](#available-tools)
-- [Free vs Pro Tools](#free-vs-pro-tools)
 - [Example Conversations](#example-conversations)
 - [Session Tracking](#session-tracking)
 - [Troubleshooting](#troubleshooting)
@@ -359,7 +358,7 @@ Once connected, Claude has access to these tools:
 | `cgc_session_stats` | Check session health and size usage |
 | `cgc_session_list` | List all sessions (including archived) |
 
-### Graph Sinks (Pro)
+### Graph Sinks
 
 These tools let you manage and query graph databases where extracted triplets are stored. Extraction itself is done via CLI or API.
 
@@ -371,27 +370,6 @@ These tools let you manage and query graph databases where extracted triplets ar
 | `cgc_sink_stats` | Get node/edge counts from a graph sink |
 | `cgc_sink_query` | Execute Cypher queries to explore the graph |
 | `cgc_sink_find` | Find all triplets involving a specific entity |
-
----
-
-## Free vs Pro Tools
-
-Most MCP tools are available on the free tier. The MCP server provides context extension -- connecting to data, exploring schemas, sampling, chunking, searching, and running SQL queries. These features work without a license.
-
-**Graph extraction** (converting text into knowledge graph triplets) is available via the CLI (`cgc extract`, `cgc extract-file`) or the HTTP API (`POST /extract/*`). Extraction requires an active trial or Pro license.
-
-**Graph sink management** (connecting to Neo4j/AGE/KuzuDB, querying the graph) is available via MCP, but requires extracted data. Use CLI or API to extract, then explore the results via MCP.
-
-| MCP (all tiers) | MCP (Pro - after extraction) | CLI/API (Trial/Pro only) |
-|------------------|------------------------------|--------------------------|
-| Connect to data sources | Connect graph sinks | Extract triplets from text |
-| Discover schemas | Query graph with Cypher | Extract from files |
-| Sample data | Find entities in graph | Store to Neo4j / AGE / KuzuDB |
-| Run SQL queries | Get graph statistics | Chunk-then-extract |
-| Search text patterns | | Domain detection |
-| Chunk large files | | Industry pack routing |
-| Find relationships | | |
-| Session tracking | | |
 
 ---
 

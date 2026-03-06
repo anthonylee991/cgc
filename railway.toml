@@ -1,8 +1,0 @@
-[build]
-builder = "dockerfile"
-dockerfilePath = "relay-api/Dockerfile"
-
-[deploy]
-healthcheckPath = "/health"
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3

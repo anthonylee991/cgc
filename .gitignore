@@ -14,10 +14,6 @@ venv/
 .venv/
 env/
 
-# PyInstaller
-*.manifest
-*.spec.bak
-
 # IDE
 .idea/
 .vscode/
@@ -27,7 +23,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-nul
 
 # Environment
 .env
@@ -48,6 +43,6 @@ htmlcov/
 .coverage
 .coverage.*
 
-# Distribution bundles
-*.zip
-CGC_v*_bundle/
+# PyInstaller
+*.spec
+*.manifest

@@ -22,7 +22,6 @@ from pydantic import BaseModel, Field
 
 from cgc.connector import Connector
 from cgc.core.chunk import FixedRowsStrategy, FixedTokensStrategy, BySectionsStrategy
-from cgc.licensing import LicenseStore, LicenseError, require_extraction, Tier, get_tier
 
 
 # === Request/Response Models ===
@@ -126,7 +125,6 @@ class FindRelatedRequest(BaseModel):
 # === Global Connector ===
 
 _connector: Connector | None = None
-_license_store: LicenseStore | None = None
 
 
 def get_connector() -> Connector:
@@ -135,26 +133,6 @@ def get_connector() -> Connector:
     if _connector is None:
         _connector = Connector()
     return _connector
-
-
-def get_license_store() -> LicenseStore:
-    """Get the global license store instance."""
-    global _license_store
-    if _license_store is None:
-        _license_store = LicenseStore()
-    return _license_store
-
-
-def check_pro_license() -> None:
-    """Check that the current license allows extraction features.
-
-    Raises HTTPException(403) if extraction is not allowed.
-    """
-    store = get_license_store()
-    try:
-        require_extraction(store)
-    except LicenseError as e:
-        raise HTTPException(403, str(e))
 
 
 def _normalize_path(path: str) -> str:
@@ -311,11 +289,8 @@ async def remove_source(source_id: str):
 
 @app.get("/sinks")
 async def list_sinks():
-    """List connected graph sinks.
+    """List connected graph sinks."""
 
-    Requires CGC Pro license.
-    """
-    check_pro_license()
     connector = get_connector()
     return {"sinks": list(connector._sinks.keys())}
 
@@ -324,14 +299,12 @@ async def list_sinks():
 async def add_sink(config: SinkConfig):
     """Add a graph sink for storing extracted triplets.
 
-    Requires CGC Pro license.
-
     Supported sink types:
     - neo4j: Neo4j graph database
     - age: PostgreSQL with Apache AGE extension
     - kuzudb: Embedded graph database (no server required)
     """
-    check_pro_license()
+
     connector = get_connector()
 
     try:
@@ -364,11 +337,8 @@ async def add_sink(config: SinkConfig):
 
 @app.delete("/sinks/{sink_id}")
 async def remove_sink(sink_id: str):
-    """Remove a graph sink.
+    """Remove a graph sink."""
 
-    Requires CGC Pro license.
-    """
-    check_pro_license()
     connector = get_connector()
     if connector.remove_sink(sink_id):
         return {"status": "removed", "sink_id": sink_id}
@@ -377,11 +347,8 @@ async def remove_sink(sink_id: str):
 
 @app.get("/sinks/{sink_id}/stats")
 async def get_sink_stats(sink_id: str):
-    """Get statistics from a graph sink.
+    """Get statistics from a graph sink."""
 
-    Requires CGC Pro license.
-    """
-    check_pro_license()
     connector = get_connector()
 
     if not connector.has_sink(sink_id):
@@ -413,11 +380,9 @@ class CypherQueryRequest(BaseModel):
 async def query_sink(sink_id: str, request: CypherQueryRequest):
     """Execute a Cypher query against a graph sink.
 
-    Requires CGC Pro license.
-
     Supports both Neo4j Cypher and AGE-compatible Cypher queries.
     """
-    check_pro_license()
+
     connector = get_connector()
 
     if not connector.has_sink(sink_id):
@@ -442,11 +407,8 @@ async def find_entity_in_sink(
     graph_name: str | None = Query(default=None),
     limit: int = Query(default=100),
 ):
-    """Find all triplets involving a specific entity in a graph sink.
+    """Find all triplets involving a specific entity in a graph sink."""
 
-    Requires CGC Pro license.
-    """
-    check_pro_license()
     connector = get_connector()
 
     if not connector.has_sink(sink_id):
@@ -901,8 +863,6 @@ async def find_related(request: FindRelatedRequest):
 async def extract_triplets(request: TripletRequest):
     """Extract triplets from text.
 
-    Requires CGC Pro license.
-
     Supports pattern-only (fast) or hybrid GliNER+GliREL extraction (higher recall).
     Optionally force an industry pack via the `domain` parameter.
 
@@ -910,7 +870,7 @@ async def extract_triplets(request: TripletRequest):
     - neo4j://user:pass@host:port/database
     - age://user:pass@host:port/database (PostgreSQL with Apache AGE)
     """
-    check_pro_license()
+
     connector = get_connector()
 
     try:
@@ -948,14 +908,12 @@ async def extract_triplets(request: TripletRequest):
 async def extract_structured(request: StructuredExtractionRequest):
     """Extract triplets from structured data using hub-and-spoke model.
 
-    Requires CGC Pro license.
-
     Classifies columns (primary entity, foreign key, property, etc.)
     and builds entity relationships automatically.
 
     If `sink_uri` is provided, triplets are also stored to a graph database.
     """
-    check_pro_license()
+
     connector = get_connector()
 
     try:
@@ -995,14 +953,12 @@ async def extract_file(
 ):
     """Extract triplets from an uploaded file.
 
-    Requires CGC Pro license.
-
     Supports structured formats (CSV, JSON, XLS, XLSX) via hub-and-spoke extraction,
     and unstructured formats (text, PDF, Markdown, etc.) via pattern + ML extraction.
 
     If `sink_uri` is provided, triplets are also stored to a graph database.
     """
-    check_pro_license()
+
     from cgc.adapters.parsers import parse_file
 
     try:
@@ -1050,15 +1006,13 @@ async def extract_file(
 async def extract_chunked(request: ChunkedExtractionRequest):
     """Chunk a file then extract triplets from each chunk.
 
-    Requires CGC Pro license.
-
     Designed for unstructured data (PDFs, docs, large text files) where
     chunking before extraction improves results. Requires a connected
     filesystem source.
 
     If `sink_uri` is provided, all extracted triplets are stored to a graph database.
     """
-    check_pro_license()
+
     connector = get_connector()
 
     if not connector.has_source(request.source_id):
@@ -1120,11 +1074,9 @@ async def extract_chunked(request: ChunkedExtractionRequest):
 async def detect_domain(request: DomainDetectionRequest):
     """Detect the industry domain of text for optimized extraction.
 
-    Requires CGC Pro license.
-
     Uses E5 embeddings to route text to the best-matching industry pack.
     """
-    check_pro_license()
+
     connector = get_connector()
 
     try:
@@ -1136,11 +1088,8 @@ async def detect_domain(request: DomainDetectionRequest):
 
 @app.get("/packs")
 async def list_packs():
-    """List all available industry packs for domain-specific extraction.
+    """List all available industry packs for domain-specific extraction."""
 
-    Requires CGC Pro license.
-    """
-    check_pro_license()
     from cgc.discovery.industry_packs import get_all_packs
 
     packs = get_all_packs()

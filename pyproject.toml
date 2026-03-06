@@ -1,62 +1,41 @@
 [project]
 name = "context-graph-connector"
-version = "0.5.1"
+version = "0.6.0"
 description = "Programmatic data access layer for LLM agents - navigate context, don't memorize it"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [
-    { name = "Your Name", email = "you@example.com" }
+    { name = "Anthony Lee", email = "anthony@anthonylee991.com" }
 ]
-keywords = ["llm", "rag", "knowledge-graph", "data-access", "context"]
+keywords = ["llm", "rag", "knowledge-graph", "data-access", "context", "mcp", "graph-extraction"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Database",
 ]
 
 dependencies = [
     # SQL databases
     "sqlalchemy>=2.0",
-    "asyncpg",
-    "aiomysql",
     "aiosqlite",
-    "pgvector",
 
-    # Vector databases
-    "qdrant-client>=1.0",
-    "pinecone-client>=3.0",
-
-    # MongoDB
-    "pymongo>=4.0",
-    "motor",
-
-    # Object storage
-    "boto3",
-    "aioboto3",
+    # Data handling
+    "pydantic>=2.0",
+    "aiofiles",
 
     # Document parsing
     "pypdf>=3.0",
     "pdfplumber",
     "python-docx",
     "openpyxl",
-    "xlrd>=2.0",
-
-    # Data handling
-    "pydantic>=2.0",
-    "pandas",
-    "pyarrow",
-    "aiofiles",
-
-    # NER / Extraction
-    "gliner",
-    "glirel",
-    "spacy>=3.5",
-    "sentence-transformers>=2.0",
 
     # CLI
     "typer>=0.9",
@@ -68,12 +47,6 @@ dependencies = [
 
     # MCP (Model Context Protocol)
     "mcp>=1.0",
-
-    # Graph databases (embedded)
-    "kuzu",
-
-    # Licensing
-    "cryptography>=41.0",
 
     # Utilities
     "python-dotenv",
@@ -88,11 +61,29 @@ extraction = [
     "spacy>=3.5",
     "sentence-transformers>=2.0",
 ]
+postgres = [
+    "asyncpg",
+    "pgvector",
+]
+mysql = [
+    "aiomysql",
+]
+vector = [
+    "qdrant-client>=1.0",
+    "pinecone-client>=3.0",
+    "pymongo>=4.0",
+    "motor",
+]
+graph = [
+    "kuzu",
+]
+all = [
+    "context-graph-connector[extraction,postgres,mysql,vector,graph]",
+]
 dev = [
     "pytest>=7.0",
     "pytest-asyncio",
     "pytest-cov",
-    "testcontainers",
     "ruff",
     "mypy",
 ]
@@ -100,8 +91,13 @@ dev = [
 [project.scripts]
 cgc = "cgc.cli.main:main"
 cgc-server = "cgc.api.server:main"
-cgc-server-secure = "cgc.api.secure_server:main"
 cgc-mcp = "cgc.mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/anthonylee991/cgc"
+Repository = "https://github.com/anthonylee991/cgc"
+Issues = "https://github.com/anthonylee991/cgc/issues"
+Documentation = "https://github.com/anthonylee991/cgc/tree/master/docs"
 
 [build-system]
 requires = ["hatchling"]
