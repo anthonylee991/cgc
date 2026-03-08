@@ -57,40 +57,17 @@ Usually: `C:\Users\YourName\AppData\Roaming\Claude\claude_desktop_config.json`
 ~/.config/Claude/claude_desktop_config.json
 ```
 
+### Step 1b: Install CGC
+
+If you haven't already, install CGC via pip:
+
+```bash
+pip install context-graph-connector
+```
+
 ### Step 2: Edit the Config File
 
 Open the file in a text editor (like Notepad). If the file doesn't exist, create it.
-
-**Using the CGC MCP Executable (Recommended):**
-
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "C:\\path\\to\\cgc_mcp.exe",
-      "args": []
-    }
-  }
-}
-```
-
-Replace `C:\\path\\to\\cgc_mcp.exe` with the actual path to your executable.
-
-> **Note:** The MCP server uses a separate, lightweight executable (`cgc_mcp.exe`) optimized for fast startup. It provides all context extension tools (discover, sample, chunk, search, SQL) without requiring ML libraries. Graph extraction is available via the CLI or API.
-
-**Example (Windows):**
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "C:\\Users\\John\\Tools\\cgc_mcp.exe",
-      "args": []
-    }
-  }
-}
-```
-
-**Using Python (if installed via pip):**
 
 ```json
 {
@@ -102,6 +79,8 @@ Replace `C:\\path\\to\\cgc_mcp.exe` with the actual path to your executable.
   }
 }
 ```
+
+> **Note:** On some systems you may need to use `python3` instead of `python`. Use whichever command works when you run `python --version` in your terminal.
 
 ### Step 3: Restart Claude Desktop
 
@@ -124,37 +103,27 @@ Claude Code is the VS Code extension for using Claude in your editor.
 
 > **Important:** Claude Code in VS Code does **not** recognize manually edited config files. You **must** register MCP servers using the CLI command below.
 
-### Step 1: Register CGC via the CLI
+### Step 1: Install CGC
+
+```bash
+pip install context-graph-connector
+```
+
+### Step 2: Register CGC via the CLI
 
 Open a terminal and run:
 
-**Using the Executable:**
-```
-claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"
-```
-
-**Using Python (if installed via pip):**
 ```
 claude mcp add cgc -s global -- python -m cgc.mcp.server
 ```
 
-Replace the path with the actual location of your `cgc_mcp.exe`.
+> **Note:** On some systems you may need to use `python3` instead of `python`.
 
-**Example (Windows):**
-```
-claude mcp add cgc -s global -- "C:\Users\John\Tools\cgc_mcp.exe"
-```
-
-**Example (Mac):**
-```
-claude mcp add cgc -s global -- /Users/john/tools/cgc_mcp
-```
-
-### Step 2: Restart VS Code
+### Step 3: Restart VS Code
 
 Close and reopen VS Code for the changes to take effect.
 
-### Step 3: Verify Connection
+### Step 4: Verify Connection
 
 Type `/mcp` in Claude Code. You should see `cgc` listed as connected.
 
@@ -186,33 +155,28 @@ You can also use a project-level config at `.cursor/mcp.json` in your project ro
 
 **Alternative:** Open Command Palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Windows) and search for "MCP" to access MCP settings directly.
 
+### Step 1b: Install CGC
+
+```bash
+pip install context-graph-connector
+```
+
 ### Step 2: Edit the Config File
 
 Create or edit the `mcp.json` file:
 
-**Windows:**
 ```json
 {
   "mcpServers": {
     "cgc": {
-      "command": "C:\\path\\to\\cgc_mcp.exe",
-      "args": []
+      "command": "python",
+      "args": ["-m", "cgc.mcp.server"]
     }
   }
 }
 ```
 
-**Mac:**
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "/path/to/cgc_mcp",
-      "args": []
-    }
-  }
-}
-```
+> **Note:** On some systems you may need to use `python3` instead of `python`.
 
 ### Step 3: Restart Cursor
 
@@ -244,33 +208,28 @@ Windsurf (by Codeium) is an AI-powered IDE with MCP support via Cascade.
 
 **Alternative:** Open Windsurf Settings > Cascade > MCP Servers to manage servers via the UI.
 
+### Step 1b: Install CGC
+
+```bash
+pip install context-graph-connector
+```
+
 ### Step 2: Edit the Config File
 
 Create or edit the `mcp_config.json` file:
 
-**Windows:**
 ```json
 {
   "mcpServers": {
     "cgc": {
-      "command": "C:\\path\\to\\cgc_mcp.exe",
-      "args": []
+      "command": "python",
+      "args": ["-m", "cgc.mcp.server"]
     }
   }
 }
 ```
 
-**Mac:**
-```json
-{
-  "mcpServers": {
-    "cgc": {
-      "command": "/path/to/cgc_mcp",
-      "args": []
-    }
-  }
-}
-```
+> **Note:** On some systems you may need to use `python3` instead of `python`.
 
 ### Step 3: Restart Windsurf
 
@@ -288,12 +247,16 @@ Completely quit and restart Windsurf for the configuration to load.
 
 Cline is a VS Code extension for AI-assisted coding with MCP support.
 
-### Step 1: Register CGC
+### Step 1: Install and Register CGC
+
+```bash
+pip install context-graph-connector
+```
 
 If you also use Claude Code, CGC is already registered (see above). Otherwise, use the Claude Code CLI:
 
 ```
-claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"
+claude mcp add cgc -s global -- python -m cgc.mcp.server
 ```
 
 > **Note:** Do not manually edit `~/.claude/settings.json` — changes made by hand are not recognized by VS Code extensions. Always use the CLI command.
@@ -625,20 +588,19 @@ Claude doesn't see the CGC tools.
 
 **Solutions:**
 
-1. **Claude Code / Cline: use the CLI, not manual edits**
+1. **Make sure CGC is installed:**
+   - Run `pip install context-graph-connector` first
+   - Verify: `python -m cgc.mcp.server --help` should show options
+
+2. **Claude Code / Cline: use the CLI, not manual edits**
    - VS Code extensions do **not** detect hand-edited config files
-   - Run: `claude mcp add cgc -s global -- "C:\path\to\cgc_mcp.exe"`
+   - Run: `claude mcp add cgc -s global -- python -m cgc.mcp.server`
    - Then restart VS Code
 
-2. **Claude Desktop / Cursor / Windsurf: check the config file path**
+3. **Claude Desktop / Cursor / Windsurf: check the config file path**
    - Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (Mac)
    - Cursor: `~/.cursor/mcp.json`
    - Windsurf: `~/.codeium/windsurf/mcp_config.json`
-
-3. **Check the executable path**
-   - Use the full path to cgc_mcp.exe
-   - Use double backslashes in Windows JSON paths: `C:\\Users\\...`
-   - Args should be empty: `[]`
 
 4. **Restart the application**
    - Close completely (check system tray)
@@ -729,12 +691,12 @@ You can use CGC alongside other MCP tools:
 {
   "mcpServers": {
     "cgc": {
-      "command": "C:\\Tools\\cgc_mcp.exe",
-      "args": []
+      "command": "python",
+      "args": ["-m", "cgc.mcp.server"]
     },
     "another-tool": {
-      "command": "C:\\Tools\\other_mcp.exe",
-      "args": []
+      "command": "python",
+      "args": ["-m", "another_tool.server"]
     }
   }
 }
@@ -748,8 +710,8 @@ Pass environment variables to CGC:
 {
   "mcpServers": {
     "cgc": {
-      "command": "C:\\Tools\\cgc_mcp.exe",
-      "args": [],
+      "command": "python",
+      "args": ["-m", "cgc.mcp.server"],
       "env": {
         "CGC_LOG_LEVEL": "debug"
       }

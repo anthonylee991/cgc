@@ -163,11 +163,23 @@ This is useful for:
 - Understanding document content
 - Finding connections mentioned in text
 
-#### Extraction Pipeline (v0.2.0)
+#### Extraction Pipeline (v0.7.0)
 
-CGC uses a multi-stage extraction pipeline:
+CGC supports two extraction pipelines. The **v2 pipeline** (default) is recommended for most users.
+
+**v2 Pipeline (default) — GLiNER2:**
 
 1. **Pattern Matching** (50+ regex patterns) - Fast, high-precision extraction for employment, location, organizational, e-commerce, financial, and technical relationships.
+
+2. **GLiNER2** (`gliner2` model) - A single unified model (~205-340M params) that handles NER, relation extraction, text classification, and structured extraction in one pass. Replaces the 4-model v1 stack.
+
+3. **Semantic Constraints** - Validates that extracted relations make sense (e.g., only a `person` can `WORKS_AT` an `organization`). Normalizes labels and predicates, filters garbage entities.
+
+Install v2: `pip install context-graph-connector[extraction]`
+
+**v1 Pipeline (legacy) — GliNER + GLiREL:**
+
+1. **Pattern Matching** (same as v2)
 
 2. **GliNER** (`urchade/gliner_medium-v2.1`) - Neural NER with batched label sets (core, technical, business, financial). Finds entities that patterns miss.
 
@@ -177,7 +189,15 @@ CGC uses a multi-stage extraction pipeline:
 
 5. **Structured Extractor** - Hub-and-spoke model for tabular data. Classifies columns (primary entity, foreign key, timestamp, property) and builds relationships automatically.
 
-6. **Semantic Constraints** - Validates that extracted relations make sense (e.g., only a `person` can `WORKS_AT` an `organization`). Normalizes labels and predicates, filters garbage entities.
+6. **Semantic Constraints** (same as v2)
+
+Install v1: `pip install context-graph-connector[extraction-v1]`
+
+**Benchmark comparison (v2 vs v1):**
+- F1 score: 0.52 vs 0.47 (+11%)
+- Model load: 5x faster
+- Inference: 15% faster
+- Dependencies: 1 package vs 4
 
 #### Industry Packs
 
@@ -205,10 +225,14 @@ CGC includes 17 industry-specific label sets for domain-optimized extraction:
 
 #### ML Dependencies
 
-The ML extraction components (GliNER, GliREL, E5 router) require PyTorch, spaCy, and sentence-transformers. These are optional — pattern-based extraction works without any ML dependencies. Install the full stack with:
+Pattern-based extraction works without any ML dependencies. For ML extraction:
 
-```
+```bash
+# Recommended (v2 — GLiNER2, single dependency)
 pip install context-graph-connector[extraction]
+
+# Legacy (v1 — GliNER + GLiREL + spaCy + sentence-transformers)
+pip install context-graph-connector[extraction-v1]
 ```
 
 ---

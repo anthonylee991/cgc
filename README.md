@@ -16,7 +16,7 @@ CGC connects AI agents to your databases, files, and vector stores. Instead of s
 - **Sample** data to understand what's in each table or file
 - **Chunk** large documents into LLM-friendly pieces
 - **Search** across files and databases with pattern matching
-- **Extract** knowledge graphs from text and structured data (GliNER + GLiREL + 17 industry packs)
+- **Extract** knowledge graphs from text and structured data (GLiNER2 unified model + 17 industry packs)
 - **Store** extracted triplets in Neo4j, PostgreSQL AGE, or KuzuDB
 - **Query** graph sinks with Cypher
 - **MCP server** for Claude Desktop / Claude Code / Cursor / Windsurf
@@ -25,16 +25,26 @@ CGC connects AI agents to your databases, files, and vector stores. Instead of s
 
 ## Quick Start
 
+### Prerequisites
+
+- [Python 3.10+](https://www.python.org/downloads/) must be installed on your system
+
 ### Install
 
 ```bash
 pip install context-graph-connector
 ```
 
-With graph extraction (requires ML models):
+With graph extraction (GLiNER2 — requires ML models):
 
 ```bash
 pip install context-graph-connector[extraction]
+```
+
+With legacy v1 extraction (GliNER + GLiREL + spaCy):
+
+```bash
+pip install context-graph-connector[extraction-v1]
 ```
 
 With everything:
@@ -71,24 +81,26 @@ cgc serve
 cgc mcp
 ```
 
-### MCP Integration
+### MCP Integration (use CGC with AI assistants)
 
-**Claude Code (VS Code):**
+**Claude Code (VS Code / CLI):**
 ```bash
-claude mcp add cgc -- cgc mcp
+claude mcp add cgc -s global -- python -m cgc.mcp.server
 ```
 
-**Claude Desktop / Cursor / Windsurf** — add to your config:
+**Claude Desktop / Cursor / Windsurf** — add to your config file ([locations](docs/MCP.md)):
 ```json
 {
   "mcpServers": {
     "cgc": {
-      "command": "cgc",
-      "args": ["mcp"]
+      "command": "python",
+      "args": ["-m", "cgc.mcp.server"]
     }
   }
 }
 ```
+
+See the [MCP Reference](docs/MCP.md) for step-by-step setup instructions for each editor.
 
 ### Python API
 
@@ -117,7 +129,8 @@ CGC has a minimal core with optional extras for specific integrations:
 
 | Extra | What it adds |
 |-------|-------------|
-| `extraction` | GliNER, GLiREL, spaCy, sentence-transformers (knowledge graph extraction) |
+| `extraction` | GLiNER2 — unified NER + relation extraction (default, recommended) |
+| `extraction-v1` | GliNER v1, GLiREL, spaCy, sentence-transformers (legacy pipeline) |
 | `postgres` | asyncpg, pgvector (PostgreSQL support) |
 | `mysql` | aiomysql (MySQL support) |
 | `vector` | qdrant-client, pinecone-client, pymongo, motor (vector DB support) |
@@ -137,10 +150,11 @@ cgc/
 │   ├── vector/           # Qdrant, Pinecone, pgvector, MongoDB
 │   └── graph/            # Neo4j, PostgreSQL AGE, KuzuDB (sinks)
 ├── discovery/            # Schema inference, relationship detection
-│   ├── extractor.py      # Triplet extraction pipeline
-│   ├── gliner.py         # GliNER NER integration
-│   ├── glirel.py         # GLiREL relation extraction
-│   ├── router.py         # Industry pack routing (E5 embeddings)
+│   ├── extractor.py      # Triplet extraction orchestrator (v1/v2 pipeline)
+│   ├── gliner2.py        # GLiNER2 unified NER + relation extraction (v2, default)
+│   ├── gliner.py         # GliNER v1 NER integration (legacy)
+│   ├── glirel.py         # GLiREL relation extraction (legacy)
+│   ├── router.py         # Industry pack routing (E5 embeddings, v1 only)
 │   ├── industry_packs.py # 17 domain-specific extraction configs
 │   └── structured.py     # Hub-and-spoke structured data extraction
 ├── cli/                  # Typer CLI
