@@ -16,19 +16,19 @@ import json
 import os
 import sys
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 
 # Fix Windows console encoding
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 if sys.stdout.encoding != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-from dataclasses import dataclass, field
-from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from cgc.core.triplet import Triplet
+from cgc.core.triplet import Triplet  # noqa: E402, I001
 
 
 # ── Ground Truth Test Cases ──────────────────────────────────────────────────
@@ -334,12 +334,12 @@ def run_benchmark(pipeline: str, test_cases: list[TestCase]) -> BenchmarkResult:
         print(f"    P={precision:.2f} R={recall:.2f} F1={f1:.2f} | {latency_ms:.0f}ms")
 
         if missed_expected:
-            print(f"    Missed:")
+            print("    Missed:")
             for m in missed_expected:
                 print(f"      - ({m['subject']}, *{m['predicate_contains']}*, {m['object']})")
 
         if triplets:
-            print(f"    Extracted triplets:")
+            print("    Extracted triplets:")
             for t in triplets:
                 marker = ""
                 if any(triplet_matches_expected(t, exp) for exp in tc.expected_triplets):
@@ -366,7 +366,7 @@ def print_comparison(v1_result: BenchmarkResult | None, v2_result: BenchmarkResu
         return
 
     print(f"\n{'='*70}")
-    print(f"  COMPARISON SUMMARY")
+    print("  COMPARISON SUMMARY")
     print(f"{'='*70}\n")
 
     # Header
