@@ -16,7 +16,7 @@ from cgc.core.schema import (
 from cgc.core.triplet import Triplet
 from cgc.session import Session, get_session, load_session, new_session, save_session
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     # Main interface
