@@ -1,6 +1,6 @@
 [project]
 name = "context-graph-connector"
-version = "0.6.0"
+version = "0.7.0"
 description = "Programmatic data access layer for LLM agents - navigate context, don't memorize it"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -56,6 +56,9 @@ dependencies = [
 
 [project.optional-dependencies]
 extraction = [
+    "gliner2",
+]
+extraction-v1 = [
     "gliner",
     "glirel",
     "spacy>=3.5",
@@ -78,7 +81,7 @@ graph = [
     "kuzu",
 ]
 all = [
-    "context-graph-connector[extraction,postgres,mysql,vector,graph]",
+    "context-graph-connector[extraction,extraction-v1,postgres,mysql,vector,graph]",
 ]
 dev = [
     "pytest>=7.0",
